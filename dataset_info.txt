@@ -1,0 +1,21 @@
+📊 IPL Dataset Information
+
+Source:
+https://www.kaggle.com/datasets/ramjidoolla/ipl-data-set
+
+Description:
+This dataset contains ball-by-ball and match-level data for multiple seasons of the Indian Premier League (IPL).
+
+Files Included:
+1. matches.csv — Contains match-level details such as teams, venue, toss results, and match winner.
+2. deliveries.csv — Contains ball-by-ball delivery details for each match, including batsman, bowler, runs, and dismissals.
+
+Usage:
+Both files are used to build the IPL Win Probability Prediction model. 
+The datasets are merged using the "match_id" column to create a unified dataframe.
+
+License:
+The dataset is publicly available on Kaggle for educational and research purposes.
+
+Author:
+Original dataset uploaded by Kaggle user — Ramji Doolla
