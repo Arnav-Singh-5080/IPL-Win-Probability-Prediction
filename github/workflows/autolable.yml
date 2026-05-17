@@ -53,7 +53,19 @@ jobs:
 
     steps:
 
-      - name: Ensure and add labels
+      # ====================================================
+      # Step:
+      # Ensure label exists and add it
+      # ====================================================
+
+      - name: Ensure and add GSSoC'26 label
+
+        # ================================================
+        # GitHub Script Action
+        #
+        # Allows JavaScript execution directly
+        # within GitHub Actions
+        # ================================================
 
         uses: actions/github-script@v6
 
@@ -120,7 +132,23 @@ jobs:
 
                 .catch(() => {});
 
-              }
+                color: "0e8a16",
+
+                description: "Label for GSSoC 2026 issues"
+
+              })
+
+
+
+              // ==========================================
+              // Ignore errors silently
+              //
+              // Prevents workflow failure if:
+              // - Label already created elsewhere
+              // - Race conditions occur
+              // ==========================================
+
+              .catch(() => {});
 
             }
 
