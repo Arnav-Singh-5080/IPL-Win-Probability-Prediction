@@ -821,6 +821,14 @@ team_data = {
         "logo": "http://assets.designhill.com/design-blog/wp-content/uploads/2025/03/8-4.jpg",
         "abbr": "SRH", "color": "#f97316"
     }
+    "Lucknow Super Giants": {
+        "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/1/11/Lucknow_Super_Giants_IPL_Logo.svg/1200px-Lucknow_Super_Giants_IPL_Logo.svg.png",
+        "abbr": "LSG", "color": "#00B4D8"
+    },
+    "Gujarat Titans": {
+        "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/0/09/Gujarat_Titans_Logo.svg/1200px-Gujarat_Titans_Logo.svg.png",
+        "abbr": "GT", "color": "#1C3E6E"
+    },
 }
 
 # -----------------------------------
