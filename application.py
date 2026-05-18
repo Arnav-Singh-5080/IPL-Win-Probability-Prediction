@@ -23,13 +23,72 @@ if "last_prediction" not in st.session_state:
     st.session_state.last_prediction = None
 if "prob_history" not in st.session_state:
     st.session_state.prob_history = []
+if "lang" not in st.session_state:
+    st.session_state.lang = "en"
+
+TRANSLATIONS = {
+    "en": {
+        "toggle_btn": "हिन्दी",
+        "brand_name": "CRICSCOPE", "brand_tagline": "Match Intelligence Platform",
+        "nav_label": "Navigation", "nav_dashboard": "◈  Dashboard", "nav_analysis": "◉  Match Analysis",
+        "built_by": "Built By", "version": "CricScope v2.0 · IPL Edition",
+        "hero_eyebrow": "IPL Match Intelligence · Season 2025", "hero_badge": "Live Predictions Active",
+        "hero_title": "CricScope",
+        "hero_subtitle": "Precision match analytics engineered for modern cricket. Real-time win probability powered by machine learning.",
+        "stat_teams": "IPL Teams", "stat_model": "Model Type", "stat_balls": "Balls Tracked", "stat_signals": "Key Signals",
+        "teams_label": "IPL Teams", "win_rates_label": "All-Time Win Rates",
+        "cta_label": "Get Started", "cta_text": "Open Match Analysis from the sidebar →",
+        "analysis_eyebrow": "Win Probability Engine", "analysis_title": "Match Analysis",
+        "analysis_subtitle": "Configure the match state below to compute real-time win probabilities.",
+        "match_config_label": "Match Configuration",
+        "teams_section_label": "Teams", "batting_team_label": "Batting Team", "bowling_team_label": "Bowling Team",
+        "match_state_label": "Match State", "target_label": "Target Score", "score_label": "Current Score",
+        "overs_label": "Overs Completed", "wickets_label": "Wickets Fallen",
+        "fixture_label": "Fixture", "batting_badge": "BATTING", "bowling_badge": "BOWLING",
+        "analyze_btn": "Run Analysis", "prediction_label": "Prediction Output",
+        "win_prob_label": "Win Probability", "score_chip": "Score", "needed_chip": "Needed",
+        "balls_chip": "Balls Left", "crr_chip": "CRR", "rrr_chip": "RRR", "inhand_chip": "In Hand",
+        "verdict_label": "Model Verdict", "verdict_suffix": "favoured to win",
+        "confidence_label": "Confidence", "conf_high": "High", "conf_mod": "Moderate", "conf_close": "Close",
+        "chart_x": "Overs", "chart_y": "Win Probability (%)", "chart_title": "Win Probability Progression",
+    },
+    "hi": {
+        "toggle_btn": "English",
+        "brand_name": "क्रिकस्कोप", "brand_tagline": "मैच इंटेलिजेंस प्लेटफॉर्म",
+        "nav_label": "नेविगेशन", "nav_dashboard": "◈  डैशबोर्ड", "nav_analysis": "◉  मैच विश्लेषण",
+        "built_by": "निर्माता", "version": "क्रिकस्कोप v2.0 · IPL संस्करण",
+        "hero_eyebrow": "IPL मैच इंटेलिजेंस · सीज़न 2025", "hero_badge": "लाइव भविष्यवाणी सक्रिय",
+        "hero_title": "क्रिकस्कोप",
+        "hero_subtitle": "आधुनिक क्रिकेट के लिए सटीक मैच विश्लेषण। मशीन लर्निंग द्वारा रियल-टाइम जीत संभावना।",
+        "stat_teams": "IPL टीमें", "stat_model": "मॉडल प्रकार", "stat_balls": "गेंदें ट्रैक", "stat_signals": "मुख्य संकेत",
+        "teams_label": "IPL टीमें", "win_rates_label": "सर्वकालिक जीत दर",
+        "cta_label": "शुरू करें", "cta_text": "साइडबार से मैच विश्लेषण खोलें →",
+        "analysis_eyebrow": "जीत संभावना इंजन", "analysis_title": "मैच विश्लेषण",
+        "analysis_subtitle": "रियल-टाइम जीत संभावना जानने के लिए मैच की स्थिति दर्ज करें।",
+        "match_config_label": "मैच कॉन्फ़िगरेशन",
+        "teams_section_label": "टीमें", "batting_team_label": "बल्लेबाजी टीम", "bowling_team_label": "गेंदबाजी टीम",
+        "match_state_label": "मैच स्थिति", "target_label": "लक्ष्य स्कोर", "score_label": "वर्तमान स्कोर",
+        "overs_label": "पूर्ण ओवर", "wickets_label": "गिरे विकेट",
+        "fixture_label": "फिक्स्चर", "batting_badge": "बल्लेबाजी", "bowling_badge": "गेंदबाजी",
+        "analyze_btn": "विश्लेषण करें", "prediction_label": "भविष्यवाणी परिणाम",
+        "win_prob_label": "जीत संभावना", "score_chip": "स्कोर", "needed_chip": "चाहिए",
+        "balls_chip": "शेष गेंदें", "crr_chip": "CRR", "rrr_chip": "RRR", "inhand_chip": "हाथ में",
+        "verdict_label": "मॉडल निर्णय", "verdict_suffix": "की जीत संभावित",
+        "confidence_label": "आत्मविश्वास", "conf_high": "उच्च", "conf_mod": "मध्यम", "conf_close": "कड़ा मुकाबला",
+        "chart_x": "ओवर", "chart_y": "जीत संभावना (%)", "chart_title": "जीत संभावना प्रगति",
+    },
+}
+
+def T(key):
+    lang = st.session_state.get("lang", "en")
+    return TRANSLATIONS.get(lang, TRANSLATIONS["en"]).get(key, TRANSLATIONS["en"].get(key, key))
 
 # -----------------------------------
 # LUXURY CSS - RESPONSIVE DESIGN
 # -----------------------------------
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600&display=swap');
 
 /* ---- RESET & BASE ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -70,7 +129,7 @@ section[data-testid="stSidebar"] > div {
 }
 
 .sidebar-logo-text {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Noto Sans Devanagari', 'Cormorant Garamond', serif;
     font-size: clamp(18px, 4vw, 28px);
     font-weight: 600;
     letter-spacing: 3px;
@@ -125,6 +184,30 @@ section[data-testid="stSidebar"] > div {
     overflow: hidden;
 }
 
+/* ---- LANGUAGE TOGGLE PILL ---- */
+.lang-toggle-wrapper > div > button {
+    width: auto !important;
+    min-height: 34px !important;
+    margin-top: 12px !important;
+    padding: 5px 20px !important;
+    border-radius: 100px !important;
+    border: 1.5px solid rgba(212,175,55,0.6) !important;
+    background: rgba(212,175,55,0.07) !important;
+    color: #d4af37 !important;
+    font-family: 'Noto Sans Devanagari', 'DM Sans', sans-serif !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    transition: all 0.25s ease !important;
+}
+.lang-toggle-wrapper > div > button:hover {
+    background: rgba(212,175,55,0.18) !important;
+    border-color: #d4af37 !important;
+    box-shadow: 0 0 20px rgba(212,175,55,0.25) !important;
+    transform: translateY(-1px) !important;
+    color: #f0d060 !important;
+}
+
 .stButton > button:hover {
     background: rgba(212,175,55,0.06);
     color: #d4af37;
@@ -174,11 +257,11 @@ section[data-testid="stSidebar"] > div {
 }
 
 .hero-title {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Noto Sans Devanagari', 'Cormorant Garamond', serif;
     font-size: clamp(32px, 10vw, 88px);
     font-weight: 600;
-    line-height: 0.95;
-    letter-spacing: -1px;
+    line-height: 1.4;
+    letter-spacing: 0px;
     background: linear-gradient(160deg, #ffffff 0%, #f8f0d0 30%, #d4af37 70%, #a07820 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -577,7 +660,7 @@ hr {
 
 /* ---- CONTENT PADDING ---- */
 .main-pad {
-    padding: 0 clamp(16px, 8vw, 60px) clamp(32px, 8vw, 60px);
+    padding: 0 clamp(32px, 8vw, 60px) clamp(32px, 8vw, 60px) clamp(32px, 4vw, 48px);
 }
 
 /* ---- SCROLLBAR ---- */
@@ -605,165 +688,123 @@ hr {
 
 /* ---- MOBILE RESPONSIVE BREAKPOINTS ---- */
 @media (max-width: 768px) {
-    /* HERO SECTION */
     .hero-wrapper {
         padding: clamp(24px, 6vw, 48px) clamp(12px, 6vw, 40px) clamp(20px, 5vw, 32px);
     }
-
     .hero-title {
         font-size: clamp(24px, 8vw, 48px);
         margin-bottom: clamp(10px, 2vw, 16px);
     }
-
     .hero-subtitle {
         font-size: clamp(11px, 2.5vw, 14px);
         max-width: 100%;
     }
-
-    /* STATS ROW */
     .stats-row {
         padding: clamp(12px, 3vw, 20px) clamp(12px, 6vw, 40px);
         gap: clamp(8px, 2vw, 12px);
     }
-
     .stat-pill {
         min-width: 70px;
         padding: clamp(10px, 2vw, 14px) clamp(10px, 2vw, 16px);
     }
-
     .stat-value {
         font-size: clamp(16px, 3vw, 22px);
         margin-bottom: 4px;
     }
-
     .stat-label {
         font-size: clamp(7px, 1.2vw, 8px);
     }
-
-    /* SIDEBAR NAV */
     section[data-testid="stSidebar"] {
         width: 220px !important;
     }
-
     .sidebar-brand {
         padding: clamp(16px, 4vw, 24px) clamp(12px, 3vw, 20px) clamp(12px, 3vw, 16px);
     }
-
     .sidebar-logo-text {
         font-size: clamp(16px, 3.5vw, 24px);
     }
-
-    /* INPUT CARDS */
     .input-card {
         padding: clamp(12px, 3vw, 20px) clamp(12px, 3vw, 24px);
     }
-
-    /* PREDICTION CARDS */
     .prediction-card {
         padding: clamp(16px, 4vw, 28px) clamp(12px, 3vw, 24px);
     }
-
     .win-probability {
         font-size: clamp(36px, 8vw, 56px);
     }
-
     .metrics-row {
         gap: clamp(4px, 1.5vw, 8px);
     }
-
     .metric-chip {
         padding: clamp(6px, 1.5vw, 10px) clamp(6px, 1.5vw, 10px);
         min-height: 45px;
     }
-
     .metric-chip-value {
         font-size: clamp(12px, 2.5vw, 14px);
     }
-
     .metric-chip-label {
         font-size: clamp(6px, 1vw, 7px);
     }
-
-    /* MAIN PAD */
     .main-pad {
         padding: 0 clamp(12px, 4vw, 32px) clamp(24px, 6vw, 48px);
     }
-
-    /* TEAM CARDS */
     .team-logo-glow {
         width: clamp(50px, 12vw, 72px);
         height: clamp(50px, 12vw, 72px);
     }
-
-    /* VS DIVIDER */
     .vs-divider {
         font-size: clamp(24px, 6vw, 40px);
     }
-
     .team-abbr {
         font-size: clamp(14px, 3.5vw, 20px);
     }
-
     .team-vs-wrapper {
         padding: clamp(16px, 4vw, 28px) clamp(12px, 3vw, 20px);
     }
 }
 
 @media (max-width: 480px) {
-    /* EXTREME MOBILE ADJUSTMENTS */
     section[data-testid="stSidebar"] {
         width: 200px !important;
     }
-
     .hero-wrapper {
         padding: clamp(16px, 5vw, 32px) clamp(10px, 4vw, 24px) clamp(16px, 4vw, 24px);
     }
-
     .hero-title {
         font-size: clamp(20px, 7vw, 40px);
         letter-spacing: -0.5px;
     }
-
     .hero-eyebrow {
         font-size: clamp(7px, 1.5vw, 8px);
         margin-bottom: clamp(8px, 2vw, 12px);
     }
-
     .stats-row {
         padding: clamp(10px, 2vw, 16px) clamp(10px, 4vw, 24px);
         flex-direction: column;
     }
-
     .stat-pill {
         min-width: 100%;
         flex: 1 1 100%;
     }
-
     .input-card {
         padding: clamp(10px, 2vw, 16px) clamp(10px, 2vw, 16px);
     }
-
     .prediction-card {
         padding: clamp(12px, 3vw, 20px) clamp(10px, 2vw, 16px);
     }
-
     .win-probability {
         font-size: clamp(32px, 7vw, 48px);
     }
-
     .win-team-name {
         font-size: clamp(14px, 4vw, 28px);
     }
-
     .main-pad {
         padding: 0 clamp(10px, 3vw, 20px) clamp(20px, 5vw, 32px);
     }
-
     .metrics-row {
         flex-direction: column;
         gap: clamp(6px, 2vw, 8px);
     }
-
     .metric-chip {
         min-width: 100%;
         flex: 1 1 100%;
@@ -771,11 +812,9 @@ hr {
 }
 
 @media (min-width: 1440px) {
-    /* DESKTOP LARGE OPTIMIZATIONS */
     .stats-row {
         gap: 20px;
     }
-
     .stat-pill {
         min-width: unset;
         flex: 1;
@@ -831,7 +870,6 @@ def compute_win_rates():
     matches = pd.read_csv("matches.csv")
     valid_teams = set(team_data.keys())
 
-    # Normalize team name aliases
     name_map = {
         "Delhi Daredevils": "Delhi Capitals",
         "Kings XI Punjab": "Punjab Kings",
@@ -912,25 +950,29 @@ pipe = train_model()
 # SIDEBAR
 # -----------------------------------
 with st.sidebar:
-    st.markdown("""
+    # FIX 2: added f prefix so T() calls work
+    st.markdown(f"""
         <div class="sidebar-brand">
-            <span class="sidebar-logo-text">CRICSCOPE</span>
-            <span class="sidebar-tagline">Match Intelligence Platform</span>
+            <span class="sidebar-logo-text" style="font-family: {'Noto Sans Devanagari, sans-serif' if st.session_state.lang == 'hi' else 'Cormorant Garamond, serif'};">{T("brand_name")}</span>
+            <span class="sidebar-tagline">{T("brand_tagline")}</span>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
+    # FIX 2: added f prefix
+    st.markdown(f'<div class="sidebar-section-label">{T("nav_label")}</div>', unsafe_allow_html=True)
 
-    if st.button("◈  Dashboard", key="nav_dash"):
+    # FIX 3: T() passed directly, no quotes around it
+    if st.button(T("nav_dashboard"), key="nav_dash"):
         st.session_state.page = "Dashboard"
 
-    if st.button("◉  Match Analysis", key="nav_analysis"):
+    if st.button(T("nav_analysis"), key="nav_analysis"):
         st.session_state.page = "Analysis"
 
     st.markdown('<div style="height:1px; background:rgba(212,175,55,0.08); margin:16px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-section-label">Built By</div>', unsafe_allow_html=True)
 
-    # Profile card — rendered as separate st.markdown blocks to stay within Streamlit's HTML allowlist
+    # FIX 5: wrong key "built_by_label" → correct key "built_by"
+    st.markdown(f'<div class="sidebar-section-label">{T("built_by")}</div>', unsafe_allow_html=True)
+
     st.markdown("""
         <div style="padding:0 18px 8px;">
             <div style="background:rgba(255,255,255,0.025);border:1px solid rgba(212,175,55,0.12);
@@ -952,7 +994,6 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    # Links rendered as st.markdown with href — Streamlit allows plain <a> with href+target
     st.markdown("""
         <div style="padding:0 18px;">
             <div style="background:rgba(255,255,255,0.025);border:1px solid rgba(212,175,55,0.12);
@@ -982,59 +1023,69 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    # FIX 2: added f prefix
+    st.markdown(f"""
         <div style="text-align:center;margin-top:16px;padding-bottom:24px;font-size:9px;
                     letter-spacing:1.5px;text-transform:uppercase;color:rgba(200,185,140,0.18);">
-            CricScope v2.0 · IPL Edition
+            {T("version")}
         </div>
     """, unsafe_allow_html=True)
+
+# FIX 1: moved OUTSIDE sidebar block (no indentation)
+_spacer, _toggle_col = st.columns([7,1])
+with _toggle_col:
+    st.markdown('<div class="lang-toggle-wrapper">', unsafe_allow_html=True)
+    if st.button(T("toggle_btn"), key="lang_toggle"):
+        st.session_state.lang = "hi" if st.session_state.lang == "en" else "en"
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------
 # DASHBOARD PAGE
 # -----------------------------------
 if st.session_state.page == "Dashboard":
 
-    st.markdown("""
+    # FIX 2: added f prefix to all st.markdown blocks containing T()
+    st.markdown(f"""
         <div class="hero-wrapper">
-            <div class="hero-eyebrow">IPL Match Intelligence · Season 2025</div>
+            <div class="hero-eyebrow">{T("hero_eyebrow")}</div>
             <div class="hero-badge">
                 <div class="hero-dot"></div>
-                Live Predictions Active
+                {T("hero_badge")}
             </div>
-            <div class="hero-title">CricScope</div>
+            <div class="hero-title" style="font-family: {'Noto Sans Devanagari, sans-serif' if st.session_state.lang == 'hi' else 'Cormorant Garamond, serif'};">{T("hero_title")}</div>
             <div class="hero-subtitle">
-                Precision match analytics engineered for modern cricket.
-                Real-time win probability powered by machine learning.
+                {T("hero_subtitle")}
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div class="stats-row">
             <div class="stat-pill">
                 <div class="stat-value">8</div>
-                <div class="stat-label">IPL Teams</div>
+                <div class="stat-label">{T("stat_teams")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">ML</div>
-                <div class="stat-label">Model Type</div>
+                <div class="stat-label">{T("stat_model")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">120</div>
-                <div class="stat-label">Balls Tracked</div>
+                <div class="stat-label">{T("stat_balls")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">6+</div>
-                <div class="stat-label">Key Signals</div>
+                <div class="stat-label">{T("stat_signals")}</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div style="padding: clamp(24px, 6vw, 48px) clamp(16px, 8vw, 60px);">
             <div style="font-family:'Cormorant Garamond',serif; font-size: clamp(11px, 2vw, 13px); letter-spacing:3px;
                         text-transform:uppercase; color:rgba(212,175,55,0.4); margin-bottom: clamp(16px, 4vw, 28px);">
-                IPL Teams
+                {T("teams_label")}
             </div>
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: clamp(8px, 2vw, 12px);">
     """, unsafe_allow_html=True)
@@ -1071,12 +1122,11 @@ if st.session_state.page == "Dashboard":
                 </div>
             """, unsafe_allow_html=True)
 
-    # ---- WIN RATE STATS SECTION ----
-    st.markdown("""
+    st.markdown(f"""
         <div style="padding: 40px 60px 0;">
             <div style="font-family:'Cormorant Garamond',serif; font-size:13px; letter-spacing:3px;
                         text-transform:uppercase; color:rgba(212,175,55,0.4); margin-bottom:20px;">
-                All-Time Win Rates
+                {T("win_rates_label")}
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -1116,14 +1166,14 @@ if st.session_state.page == "Dashboard":
                 </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div style="padding: clamp(16px, 4vw, 32px) clamp(16px, 8vw, 60px); text-align:center;">
             <div style="display:inline-block; background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.15);
                         border-radius:14px; padding: clamp(12px, 3vw, 20px) clamp(20px, 5vw, 36px);">
                 <div style="font-size: clamp(8px, 1.5vw, 10px); letter-spacing:2px; text-transform:uppercase;
-                            color:rgba(212,175,55,0.5); margin-bottom:8px;">Get Started</div>
+                            color:rgba(212,175,55,0.5); margin-bottom:8px;">{T("cta_label")}</div>
                 <div style="font-family:'Cormorant Garamond',serif; font-size: clamp(14px, 3vw, 20px); color:#f0e8cc; font-weight:500;">
-                    Open Match Analysis from the sidebar →
+                    {T("cta_text")}
                 </div>
             </div>
         </div>
@@ -1134,11 +1184,12 @@ if st.session_state.page == "Dashboard":
 # -----------------------------------
 if st.session_state.page == "Analysis":
 
-    st.markdown("""
+    # FIX 2: added f prefix
+    st.markdown(f"""
         <div class="hero-wrapper" style="padding-bottom: clamp(20px, 5vw, 32px);">
-            <div class="hero-eyebrow">Win Probability Engine</div>
-            <div class="hero-title" style="font-size: clamp(28px, 6vw, 56px); margin-bottom: clamp(8px, 2vw, 10px);">Match Analysis</div>
-            <div class="hero-subtitle">Configure the match state below to compute real-time win probabilities.</div>
+            <div class="hero-eyebrow">{T("analysis_eyebrow")}</div>
+            <div class="hero-title" style="font-size: clamp(28px, 6vw, 56px); margin-bottom: clamp(8px, 2vw, 10px); font-family: {'Noto Sans Devanagari, sans-serif' if st.session_state.lang == 'hi' else 'Cormorant Garamond, serif'};">{T("analysis_title")}</div>
+            <div class="hero-subtitle">{T("analysis_subtitle")}</div>
         </div>
     """, unsafe_allow_html=True)
 
@@ -1147,11 +1198,11 @@ if st.session_state.page == "Analysis":
 
     teams = list(team_data.keys())
 
-    # ---- INPUT SECTION ----
-    st.markdown("""
+    # FIX 2: added f prefix
+    st.markdown(f"""
         <div style="font-size: clamp(8px, 1.5vw, 10px); letter-spacing:3px; text-transform:uppercase;
                     color:rgba(212,175,55,0.4); margin-bottom: clamp(12px, 3vw, 20px); font-weight:500;">
-            Match Configuration
+            {T("match_config_label")}
         </div>
     """, unsafe_allow_html=True)
 
@@ -1159,36 +1210,40 @@ if st.session_state.page == "Analysis":
 
     with col1:
         st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Teams</div>', unsafe_allow_html=True)
-        batting_team = st.selectbox("Batting Team", teams, key="bat")
-        bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
+        # FIX 2: added f prefix
+        st.markdown(f'<div class="input-label">{T("teams_section_label")}</div>', unsafe_allow_html=True)
+        # FIX 3+4: T() passed directly, no quotes
+        batting_team = st.selectbox(T("batting_team_label"), teams, key="bat")
+        bowling_team = st.selectbox(T("bowling_team_label"), [t for t in teams if t != batting_team], key="bowl")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Match State</div>', unsafe_allow_html=True)
-        target = st.number_input("Target Score", min_value=50, max_value=300, value=180, step=1)
-        score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
+        # FIX 2: added f prefix
+        st.markdown(f'<div class="input-label">{T("match_state_label")}</div>', unsafe_allow_html=True)
+        # FIX 4+5: correct key names, T() passed directly
+        target = st.number_input(T("target_label"), min_value=50, max_value=300, value=180, step=1)
+        score = st.number_input(T("score_label"), min_value=0, max_value=target - 1, value=50, step=1)
         col_ov, col_wk = st.columns(2)
         with col_ov:
-            overs = st.slider("Overs Completed", min_value=1, max_value=19, value=10)
+            overs = st.slider(T("overs_label"), min_value=1, max_value=19, value=10)
         with col_wk:
-            wickets = st.number_input("Wickets Fallen", min_value=0, max_value=9, value=2)
+            wickets = st.number_input(T("wickets_label"), min_value=0, max_value=9, value=2)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height: clamp(16px, 4vw, 28px);"></div>', unsafe_allow_html=True)
 
-    # ---- TEAM VS DISPLAY ----
     t1 = team_data[batting_team]
     if bowling_team in team_data:
         t2 = team_data[bowling_team]
     else:
         t2 = team_data[teams[1]]
 
-    st.markdown("""
+    # FIX 2: added f prefix
+    st.markdown(f"""
         <div style="font-size: clamp(8px, 1.5vw, 10px); letter-spacing:3px; text-transform:uppercase;
                     color:rgba(212,175,55,0.4); margin-bottom: clamp(12px, 3vw, 16px); font-weight:500;">
-            Fixture
+            {T("fixture_label")}
         </div>
     """, unsafe_allow_html=True)
 
@@ -1212,7 +1267,7 @@ if st.session_state.page == "Analysis":
                     {t1['abbr']}
                 </div>
                 <div style="font-size: clamp(8px, 1.5vw, 10px); color:rgba(200,185,140,0.3); margin-top:4px; letter-spacing:0.5px;">
-                    BATTING
+                    {T("batting_badge")}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -1244,19 +1299,18 @@ if st.session_state.page == "Analysis":
                     {t2['abbr']}
                 </div>
                 <div style="font-size: clamp(8px, 1.5vw, 10px); color:rgba(200,185,140,0.3); margin-top:4px; letter-spacing:0.5px;">
-                    BOWLING
+                    {T("bowling_badge")}
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
     st.markdown('<div style="height: clamp(16px, 4vw, 28px);"></div>', unsafe_allow_html=True)
 
-    # ---- ANALYZE BUTTON ----
     st.markdown('<div class="analyze-btn">', unsafe_allow_html=True)
-    analyze = st.button("Run Analysis", key="analyze_btn", use_container_width=True)
+    # FIX 4: T() passed directly, no quotes
+    analyze = st.button(T("analyze_btn"), key="analyze_btn", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---- PREDICTION OUTPUT ----
     if analyze:
         runs_left = target - score
         balls_left = 120 - (overs * 6)
@@ -1284,10 +1338,12 @@ if st.session_state.page == "Analysis":
         st.session_state.prob_history.append(round(win * 100, 2))
 
         st.markdown('<div style="height: clamp(16px, 4vw, 28px);"></div>', unsafe_allow_html=True)
-        st.markdown("""
+
+        # FIX 2+11: added f prefix
+        st.markdown(f"""
             <div style="font-size: clamp(8px, 1.5vw, 10px); letter-spacing:3px; text-transform:uppercase;
                         color:rgba(212,175,55,0.4); margin-bottom: clamp(12px, 3vw, 16px); font-weight:500;">
-                Prediction Output
+                {T("prediction_label")}
             </div>
         """, unsafe_allow_html=True)
 
@@ -1297,13 +1353,14 @@ if st.session_state.page == "Analysis":
             bat_pct = round(win * 100)
             st.markdown(f"""
                 <div class="prediction-card">
-                    <div class="prediction-label">Batting Team · {t1['abbr']}</div>
+                    <div class="prediction-label">{T("batting_badge")} · {t1['abbr']}</div>
                     <div style="font-family:'Cormorant Garamond',serif; font-size: clamp(16px, 4vw, 22px);
                                 font-weight:500;color:#c8b870;margin-bottom: clamp(12px, 3vw, 16px);">
                         {batting_team}
                     </div>
+                    <!-- FIX 6: restored correct CSS class name -->
                     <div class="win-probability">{bat_pct}%</div>
-                    <div class="win-prob-label">Win Probability</div>
+                    <div class="win-prob-label">{T("win_prob_label")}</div>
                     <div class="prob-bar-track">
                         <div class="prob-bar-fill" style="width:{bat_pct}%;"></div>
                     </div>
@@ -1313,15 +1370,16 @@ if st.session_state.page == "Analysis":
                     <div class="metrics-row">
                         <div class="metric-chip">
                             <div class="metric-chip-value">{score}</div>
-                            <div class="metric-chip-label">Score</div>
+                            <!-- FIX 7: added closing </div> tags -->
+                            <div class="metric-chip-label">{T("score_chip")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{runs_left}</div>
-                            <div class="metric-chip-label">Needed</div>
+                            <div class="metric-chip-label">{T("needed_chip")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{balls_left}</div>
-                            <div class="metric-chip-label">Balls Left</div>
+                            <div class="metric-chip-label">{T("balls_chip")}</div>
                         </div>
                     </div>
                 </div>
@@ -1332,7 +1390,7 @@ if st.session_state.page == "Analysis":
             st.markdown(f"""
                 <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);
                             border-radius:24px; padding: clamp(20px, 5vw, 36px) clamp(16px, 4vw, 32px); position:relative;overflow:hidden;">
-                    <div class="prediction-label">Bowling Team · {t2['abbr']}</div>
+                    <div class="prediction-label">{T("bowling_badge")} · {t2['abbr']}</div>
                     <div style="font-family:'Cormorant Garamond',serif; font-size: clamp(16px, 4vw, 22px);
                                 font-weight:500;color:#c8b870;margin-bottom: clamp(12px, 3vw, 16px);">
                         {bowling_team}
@@ -1341,7 +1399,8 @@ if st.session_state.page == "Analysis":
                                 color:rgba(200,185,140,0.55);line-height:1;margin-bottom:4px;">
                         {bowl_pct}%
                     </div>
-                    <div class="win-prob-label">Win Probability</div>
+                    <!-- FIX 10: was hardcoded "Win Probability", now uses T() -->
+                    <div class="win-prob-label">{T("win_prob_label")}</div>
                     <div class="prob-bar-track">
                         <div style="height:100%;border-radius:100px;
                                     background:rgba(200,185,140,0.2);
@@ -1353,25 +1412,25 @@ if st.session_state.page == "Analysis":
                     <div class="metrics-row">
                         <div class="metric-chip">
                             <div class="metric-chip-value">{round(crr, 2)}</div>
-                            <div class="metric-chip-label">CRR</div>
+                            <!-- FIX 7: added closing </div> tags -->
+                            <div class="metric-chip-label">{T("crr_chip")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{round(rrr, 2)}</div>
-                            <div class="metric-chip-label">RRR</div>
+                            <div class="metric-chip-label">{T("rrr_chip")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{10 - wickets}</div>
-                            <div class="metric-chip-label">In Hand</div>
+                            <div class="metric-chip-label">{T("inhand_chip")}</div>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-        # ---- SUMMARY ROW ----
         st.markdown('<div style="height: clamp(8px, 2vw, 16px);"></div>', unsafe_allow_html=True)
         verdict = batting_team if win > 0.5 else bowling_team
         conf = max(win, lose)
-        conf_label = "High" if conf > 0.75 else "Moderate" if conf > 0.55 else "Close"
+        conf_label = T("conf_high") if conf > 0.75 else T("conf_mod") if conf > 0.55 else T("conf_close")
 
         st.markdown(f"""
             <div style="background:rgba(212,175,55,0.03);border:1px solid rgba(212,175,55,0.1);
@@ -1380,16 +1439,18 @@ if st.session_state.page == "Analysis":
                         align-items:flex-start;justify-content:space-between;
                         gap: clamp(12px, 3vw, 20px);">
                 <div>
+                    <!-- FIX 8: added closing </div> to verdict label -->
                     <div style="font-size: clamp(7px, 1.5vw, 9px); letter-spacing:2px; text-transform:uppercase;
-                                color:rgba(212,175,55,0.35);margin-bottom:6px;">Model Verdict</div>
+                                color:rgba(212,175,55,0.35);margin-bottom:6px;">{T("verdict_label")}</div>
                     <div style="font-family:'Cormorant Garamond',serif; font-size: clamp(16px, 4vw, 22px);
                                 font-weight:500;color:#f0e8cc;">
-                        {verdict} favoured to win
+                        {verdict} {T("verdict_suffix")}
                     </div>
                 </div>
                 <div style="text-align:left;width:100%;">
+                    <!-- FIX 8: added closing </div> to confidence label -->
                     <div style="font-size: clamp(7px, 1.5vw, 9px); letter-spacing:2px; text-transform:uppercase;
-                                color:rgba(212,175,55,0.35);margin-bottom:6px;">Confidence</div>
+                                color:rgba(212,175,55,0.35);margin-bottom:6px;">{T("confidence_label")}</div>
                     <div style="font-family:'DM Mono',monospace; font-size: clamp(14px, 3vw, 20px); color:#d4af37;">
                         {conf_label} · {round(conf*100)}%
                     </div>
@@ -1403,8 +1464,9 @@ if st.session_state.page == "Analysis":
             fig = px.line(
                 x=list(range(1, len(st.session_state.prob_history)+1)),
                 y=st.session_state.prob_history,
-                labels={'x': 'Overs', 'y': 'Win Probability (%)'},
-                title="Win Probability Progression"
+                # FIX 9: added missing comma after labels
+                labels={'x': T("chart_x"), 'y': T("chart_y")},
+                title=T("chart_title")
             )
 
             fig.update_layout(
