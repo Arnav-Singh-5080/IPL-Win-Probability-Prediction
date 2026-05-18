@@ -1,0 +1,205 @@
+# ==========================================================
+# GitHub Actions Workflow
+# Purpose:
+# Automatically ensure that a label named
+# "GSSoC'26" exists and attach it whenever
+# a new issue is opened in the repository.
+#
+# Expanded version with comments and spacing
+# for readability and documentation.
+# ==========================================================
+
+name: "Auto-label GSSoC'26 on issue opened"
+
+
+
+# ==========================================================
+# Workflow Trigger Section
+# ==========================================================
+# This workflow runs automatically whenever
+# an issue is opened.
+#
+# Event:
+# issues
+#
+# Type:
+# opened
+# ==========================================================
+
+on:
+  issues:
+    types:
+      - opened
+
+
+
+# ==========================================================
+# Permission Configuration
+# ==========================================================
+# Grant permission to modify issues.
+#
+# Required because:
+# - Reading labels
+# - Creating labels
+# - Attaching labels
+# ==========================================================
+
+permissions:
+  issues: write
+
+
+
+
+# ==========================================================
+# Jobs Section
+# ==========================================================
+# Defines all workflow jobs.
+# ==========================================================
+
+jobs:
+
+  # ========================================================
+  # Job Name:
+  # add-nsoc-label
+  #
+  # Purpose:
+  # Ensure label exists and add it
+  # to newly opened issues.
+  # ========================================================
+
+  add-nsoc-label:
+
+    # ======================================================
+    # Runner Environment
+    #
+    # Using latest Ubuntu GitHub runner
+    # ======================================================
+
+    runs-on: ubuntu-latest
+
+
+
+    # ======================================================
+    # Steps
+    # ======================================================
+
+    steps:
+
+      # ====================================================
+      # Step:
+      # Ensure label exists and add it
+      # ====================================================
+
+      - name: Ensure and add GSSoC'26 label
+
+        # ================================================
+        # GitHub Script Action
+        #
+        # Allows JavaScript execution directly
+        # within GitHub Actions
+        # ================================================
+
+        uses: actions/github-script@v6
+
+        with:
+
+          script: |
+
+            // ============================================
+            // Define label name
+            // ============================================
+
+            const label = "GSSoC'26";
+
+
+
+            // ============================================
+            // Get repository details
+            // owner → repository owner
+            // repo → repository name
+            // ============================================
+
+            const { owner, repo } = context.repo;
+
+
+
+            // ============================================
+            // Attempt to locate label
+            //
+            // If label exists:
+            // Continue normally
+            //
+            // If label does not exist:
+            // Create new label
+            // ============================================
+
+            try {
+
+              await github.rest.issues.getLabel({
+
+                owner,
+                repo,
+                name: label
+
+              });
+
+            }
+
+            catch (err) {
+
+              // ==========================================
+              // Create label if missing
+              // ==========================================
+
+              await github.rest.issues.createLabel({
+
+                owner: owner,
+
+                repo: repo,
+
+                name: label,
+
+                color: "0e8a16",
+
+                description: "Label for GSSoC 2026 issues"
+
+              })
+
+
+
+              // ==========================================
+              // Ignore errors silently
+              //
+              // Prevents workflow failure if:
+              // - Label already created elsewhere
+              // - Race conditions occur
+              // ==========================================
+
+              .catch(() => {});
+
+            }
+
+
+
+            // ============================================
+            // Add label to newly opened issue
+            // ============================================
+
+            await github.rest.issues.addLabels({
+
+              owner,
+
+              repo,
+
+              issue_number:
+                context.payload.issue.number,
+
+              labels: [label]
+
+            });
+
+
+
+            // ============================================
+            // End of workflow script
+            // ============================================
