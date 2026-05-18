@@ -26,6 +26,11 @@ if "prob_history" not in st.session_state:
 if "lang" not in st.session_state:
     st.session_state.lang = "en"
 
+# Save language preference across refreshes using URL query params
+params = st.query_params
+if "lang" in params:
+    st.session_state.lang = params["lang"]
+
 TRANSLATIONS = {
     "en": {
         "toggle_btn": "हिन्दी",
@@ -1036,8 +1041,10 @@ _spacer, _toggle_col = st.columns([7,1])
 with _toggle_col:
     st.markdown('<div class="lang-toggle-wrapper">', unsafe_allow_html=True)
     if st.button(T("toggle_btn"), key="lang_toggle"):
-        st.session_state.lang = "hi" if st.session_state.lang == "en" else "en"
-        st.rerun()
+     new_lang = "hi" if st.session_state.lang == "en" else "en"
+     st.session_state.lang = new_lang
+     st.query_params["lang"] = new_lang
+     st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------
