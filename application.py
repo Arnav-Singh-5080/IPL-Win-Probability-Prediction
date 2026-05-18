@@ -820,47 +820,7 @@ team_data = {
     "Sunrisers Hyderabad": {
         "logo": "http://assets.designhill.com/design-blog/wp-content/uploads/2025/03/8-4.jpg",
         "abbr": "SRH", "color": "#f97316"
-    },
-    "Lucknow Super Giants": {
-        "logo": "https://1000logos.net/wp-content/uploads/2022/03/Lucknow-Super-Giants-Logo.png",
-        "abbr": "LSG",
-        "color": "#06b6d4"
-    },
-
-    "Gujarat Titans": {
-        "logo": "https://1000logos.net/wp-content/uploads/2022/03/Gujarat-Titans-Logo.png",
-        "abbr": "GT",
-        "color": "#1e293b"
-    },
-     "Deccan Chargers": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/7/70/DeccanChargersLogo.png",
-        "abbr": "DEC",
-        "color": "#2563eb"
-    },
-
-    "Pune Warriors India": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/4/46/Pune_Warriors_India_Logo.svg",
-        "abbr": "PWI",
-        "color": "#0f766e"
-    },
-
-    "Rising Pune Supergiant": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/f/f5/RisingPuneSupergiants.png",
-        "abbr": "RPS",
-        "color": "#7c3aed"
-    },
-    "Gujarat Lions": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/8/80/Gujarat_Lions.png",
-        "abbr": "GL",
-        "color": "#f59e0b"
-    },
-
-    "Kochi Tuskers Kerala": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/7/7e/Kochi_Tuskers_Kerala_Logo.png",
-        "abbr": "KTK",
-        "color": "#10b981"
     }
-
 }
 
 # -----------------------------------
@@ -873,11 +833,10 @@ def compute_win_rates():
 
     # Normalize team name aliases
     name_map = {
-    "Delhi Daredevils": "Delhi Capitals",
-    "Kings XI Punjab": "Punjab Kings",
-    "Royal Challengers Bengaluru": "Royal Challengers Bangalore",
-    "Rising Pune Supergiants": "Rising Pune Supergiant"
-}
+        "Delhi Daredevils": "Delhi Capitals",
+        "Kings XI Punjab": "Punjab Kings",
+        "Royal Challengers Bengaluru": "Royal Challengers Bangalore",
+    }
     matches["team1"] = matches["team1"].replace(name_map)
     matches["team2"] = matches["team2"].replace(name_map)
     matches["winner"] = matches["winner"].replace(name_map)
@@ -1053,8 +1012,8 @@ if st.session_state.page == "Dashboard":
     st.markdown("""
         <div class="stats-row">
             <div class="stat-pill">
-<div class="stat-value">15</div>
-<div class="stat-label">IPL Teams</div>
+                <div class="stat-value">8</div>
+                <div class="stat-label">IPL Teams</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">ML</div>
@@ -1080,9 +1039,9 @@ if st.session_state.page == "Dashboard":
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: clamp(8px, 2vw, 12px);">
     """, unsafe_allow_html=True)
 
-    team_cols = st.columns(5)
+    team_cols = st.columns(4)
     for i, (team_name, tdata) in enumerate(team_data.items()):
-        with team_cols[i % 5]:
+        with team_cols[i % 4]:
             st.markdown(f"""
                 <div style="
                     background:rgba(255,255,255,0.025);
@@ -1122,11 +1081,11 @@ if st.session_state.page == "Dashboard":
         </div>
     """, unsafe_allow_html=True)
 
-    wr_cols = st.columns(5)
+    wr_cols = st.columns(4)
     for i, (team_name, tdata) in enumerate(team_data.items()):
         s = win_stats.get(team_name, {"wins": 0, "total": 0, "rate": 0})
         bar_pct = s["rate"]
-        with wr_cols[i % 5]:
+        with wr_cols[i % 4]:
             st.markdown(f"""
                 <div style="
                     background:rgba(255,255,255,0.025);
