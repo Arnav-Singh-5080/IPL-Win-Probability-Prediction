@@ -129,6 +129,37 @@ Built with a fintech-inspired dark UI featuring glassmorphism cards, gold gradie
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
+
+<div align="center">
+
+##  Model Evaluation Metrics
+
+</div>
+
+The prediction engine uses a **Logistic Regression classifier**
+trained on IPL ball-by-ball match data spanning IPL seasons from 2008–2020.
+
+### Dataset Split
+
+| Split Type | Ratio |
+|---|---|
+| Training Data | 80% |
+| Testing Data | 20% |
+
+---
+
+### Model Highlights
+
+- Real-time win probability prediction
+- Ball-by-ball dynamic recalculation
+- Match-state feature engineering
+- OneHotEncoded categorical preprocessing
+- Optimized scikit-learn pipeline
+- Context-aware chase prediction logic
+
+---
+
+> Detailed evaluation metrics and expanded cross-validation results will be added in future model benchmarking updates.
 <br/>
 
 ---
@@ -168,6 +199,37 @@ Built with a fintech-inspired dark UI featuring glassmorphism cards, gold gradie
 <table>
 <tr>
 <td width="50%" valign="top">
+<div align="center">
+
+##  UI Preview
+
+Experience the premium CricScope dashboard interface.
+
+</div>
+
+<p align="center">
+  <img src="assets/dashboard.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="assets/prediction.png" width="900"/>
+</p>
+
+<p align="center">
+  <img src="assets/analytics.png" width="900"/>
+</p>
+
+
+
+<div align="center">
+
+##  Live Demo Preview
+
+</div>
+
+<p align="center">
+  <img src="demo_.gif" width="900"/>
+</p>
 
 ### Prediction Engine
 
@@ -176,6 +238,10 @@ Built with a fintech-inspired dark UI featuring glassmorphism cards, gold gradie
 - Confidence scoring system
 - Dynamic match-state analytics
 - Live prediction updates
+- SHAP-based explainable AI dashboard
+- Match momentum analysis
+- Prediction confidence meter
+- Interactive win probability progression
 
 </td>
 
@@ -233,11 +299,17 @@ Built with a fintech-inspired dark UI featuring glassmorphism cards, gold gradie
 ```bash
 cricscope/
 │
+├── assets/
+│   ├── dashboard.png
+│   ├── prediction-page.png
+│   ├── analytics.png
+│   
 ├── app.py
 ├── matches.csv
 ├── deliveries.csv
 ├── requirements.txt
 └── README.md
+└── demo_.gif
 ```
 
 <br/>
@@ -431,7 +503,7 @@ git push origin feature/your-feature-name
 | UI | Mobile responsiveness | Medium |
 | UI | Team stat pills | Easy |
 | ML | IPL 2021–2024 integration | Easy |
-| ML | Random Forest / XGBoost toggle | Hard |
+| ML | SHAP interaction visualizations | Medium |
 | ML | Cross-validation metrics | Medium |
 | Feature | Match report PDF export | Hard |
 | Feature | Head-to-head analytics | Medium |
@@ -472,6 +544,19 @@ Project Admin — GSSoC '26 & NSoC 2026
 <br/>
 
 <div align="center">
+## Screenshots
+
+### Dashboard Overview
+![Dashboard](screenshots/dashboard_overview.png)
+
+### Confidence Meter
+![Confidence Meter](screenshots/confidence_meter.png)
+
+### Momentum Analysis
+![Momentum](screenshots/momentum_analysis.png)
+
+### Explainable AI Dashboard
+![XAI](screenshots/xai_dashboard.png)
 
 ## Support the Project
 
