@@ -190,10 +190,13 @@ section[data-testid="stSidebar"] > div {
 }
 
 /* ---- LANGUAGE TOGGLE PILL ---- */
+.lang-toggle-wrapper {
+    margin-top: 60px !important;
+}
+
 .lang-toggle-wrapper > div > button {
     width: auto !important;
     min-height: 34px !important;
-    margin-top: 60px !important;
     padding: 5px 20px !important;
     border-radius: 100px !important;
     border: 1.5px solid rgba(212,175,55,0.6) !important;
