@@ -1393,6 +1393,21 @@ if st.session_state.page == "Analysis":
         st.markdown('<div class="input-label">Select Teams</div>', unsafe_allow_html=True)
         batting_team = st.selectbox("Batting Team", teams, key="bat")
         bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
+        
+        # City selection
+        st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
+        st.markdown('<div class="input-label">Match Venue</div>', unsafe_allow_html=True)
+        
+        # IPL cities - common venues used in the dataset
+        cities = [
+            "Mumbai", "Bangalore", "Delhi", "Chennai", "Kolkata", 
+            "Hyderabad", "Jaipur", "Chandigarh", "Ahmedabad", 
+            "Pune", "Lucknow", "Visakhapatnam", "Indore",
+            "Durban", "Johannesburg", "Cape Town", "Centurion",  # Some historical matches abroad (checked the dataset as well)
+            "Dubai", "Abu Dhabi", "Sharjah"  # some UAE venues mentioned in dataset
+        ]
+        
+        city = st.selectbox("City / Stadium Location", cities, key="city")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
@@ -1532,7 +1547,7 @@ if st.session_state.page == "Analysis":
         input_df = pd.DataFrame({
             'batting_team': [batting_team],
             'bowling_team': [bowling_team],
-            'city': ['Mumbai'],
+            'city': [city],  # Here is the mAin fix, from hardcoded mumbai -> dynamic city input
             'runs_left': [runs_left],
             'balls_left': [balls_left],
             'wickets': [10 - wickets],
