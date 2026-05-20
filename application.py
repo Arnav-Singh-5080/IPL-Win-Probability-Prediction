@@ -23,7 +23,8 @@ if "last_prediction" not in st.session_state:
     st.session_state.last_prediction = None
 if "prob_history" not in st.session_state:
     st.session_state.prob_history = []
-
+if "analysis_done" not in st.session_state:
+    st.session_state.analysis_done = False
 # -----------------------------------
 # LUXURY CSS - RESPONSIVE DESIGN
 # -----------------------------------
@@ -907,7 +908,60 @@ def train_model():
     return pipe
 
 pipe = train_model()
+# -----------------------------------
+# EXPLAINABLE AI (XAI)
+# -----------------------------------
+def get_feature_importance(pipe, input_df):
+    """
+    Returns feature contribution scores for the current prediction.
+    Uses Logistic Regression coefficients to estimate impact.
+    """
 
+    # Extract trained model + preprocessor
+    model = pipe.named_steps['model']
+    preprocessor = pipe.named_steps['preprocessor']
+
+    # Transform input through preprocessing pipeline
+    transformed_input = preprocessor.transform(input_df)
+
+    # Convert sparse matrix to dense array
+    if hasattr(transformed_input, "toarray"):
+        transformed_array = transformed_input.toarray()[0]
+    else:
+        transformed_array = transformed_input[0]
+
+    # Get feature names after encoding
+    feature_names = preprocessor.get_feature_names_out()
+
+    # Logistic regression coefficients
+    coefficients = model.coef_[0]
+
+    # Feature contribution = feature value × coefficient
+    contributions = transformed_array * coefficients
+
+    # Create dataframe
+    feature_importance = pd.DataFrame({
+        "Feature": feature_names,
+        "Impact": contributions
+    })
+
+    # Absolute magnitude for sorting
+    feature_importance["AbsImpact"] = feature_importance["Impact"].abs()
+
+    # Sort strongest impacts first
+    feature_importance = feature_importance.sort_values(
+        by="AbsImpact",
+        ascending=False
+    )
+
+    # Clean feature names for UI
+    feature_importance["Feature"] = (
+        feature_importance["Feature"]
+        .str.replace("cat__", "", regex=False)
+        .str.replace("num__", "", regex=False)
+    )
+
+    return feature_importance.head(8)
 # -----------------------------------
 # SIDEBAR
 # -----------------------------------
@@ -1070,6 +1124,10 @@ if st.session_state.page == "Dashboard":
                     </div>
                 </div>
             """, unsafe_allow_html=True)
+    st.markdown("""
+                </div>
+                </div>
+                """,unsafe_allow_html=True)
 
     # ---- WIN RATE STATS SECTION ----
     st.markdown("""
@@ -1132,7 +1190,7 @@ if st.session_state.page == "Dashboard":
 # -----------------------------------
 # ANALYSIS PAGE
 # -----------------------------------
-if st.session_state.page == "Analysis":
+elif st.session_state.page == "Analysis":
 
     st.markdown("""
         <div class="hero-wrapper" style="padding-bottom: clamp(20px, 5vw, 32px);">
@@ -1257,7 +1315,7 @@ if st.session_state.page == "Analysis":
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ---- PREDICTION OUTPUT ----
-    if analyze:
+    if analyze or st.session_state.analysis_done:
         runs_left = target - score
         balls_left = 120 - (overs * 6)
         crr = score / overs if overs > 0 else 0
@@ -1267,6 +1325,7 @@ if st.session_state.page == "Analysis":
             'batting_team': [batting_team],
             'bowling_team': [bowling_team],
             'city': ['Mumbai'],
+            
             'runs_left': [runs_left],
             'balls_left': [balls_left],
             'wickets': [10 - wickets],
@@ -1278,9 +1337,21 @@ if st.session_state.page == "Analysis":
         with st.spinner(""):
             time.sleep(0.4)
             proba = pipe.predict_proba(input_df)[0]
-
+            importance_df = get_feature_importance(pipe, input_df)
         win = proba[1]
         lose = proba[0]
+        st.session_state.last_prediction = {
+        "batting_team": batting_team,
+        "bowling_team": bowling_team,
+        "win": win,
+        "lose": lose,
+        "crr": crr,
+        "rrr": rrr,
+        "runs_left": runs_left,
+        "balls_left": balls_left,
+        "wickets_left": 10 - wickets
+        }
+        st.session_state.analysis_done = True
         st.session_state.prob_history.append(round(win * 100, 2))
 
         st.markdown('<div style="height: clamp(16px, 4vw, 28px);"></div>', unsafe_allow_html=True)
@@ -1415,4 +1486,280 @@ if st.session_state.page == "Analysis":
             )
 
             st.plotly_chart(fig, use_container_width=True)
+        st.markdown('<div style="height:32px;"></div>', unsafe_allow_html=True)
+        st.markdown("""
+             <div style="
+            font-size:10px;
+            letter-spacing:3px;
+            text-transform:uppercase;
+            color:rgba(212,175,55,0.4);
+            margin-bottom:16px;
+            font-weight:500;
+            ">
+            Explainable AI · Feature Impact Analysis
+            </div>
+            """, unsafe_allow_html=True)
+        label_map = {
+    "runs_left": "Runs Left",
+    "balls_left": "Balls Left",
+    "wickets": "Wickets In Hand",
+    "target": "Target Score",
+    "crr": "Current Run Rate",
+    "rrr": "Required Run Rate"
+}
+        importance_df["ReadableFeature"] = (
+    importance_df["Feature"]
+    .replace(label_map)
+)
+        importance_df = importance_df[
+            ~importance_df["Feature"].str.contains(
+                "batting_team|bowling_team|city",
+            )
+        ]
+        fig_xai = px.bar(
+    importance_df,
+    x="Impact",
+    y="ReadableFeature",
+    orientation="h",
+
+    title="Top Factors Influencing Prediction"
+)
+        
+        fig_xai.update_layout(
+    template="plotly_dark",
+    plot_bgcolor="#080808",
+    paper_bgcolor="#080808",
+    font=dict(color="#e2dfd8"),
+    title_font=dict(size=20),
+    height=450,
+    margin=dict(l=20, r=20, t=60, b=20),
+    xaxis_title="Prediction Impact",
+    yaxis_title="Feature"
+)
+        st.plotly_chart(fig_xai, use_container_width=True)
+
+        positive_features = importance_df[
+    importance_df["Impact"] > 0
+].sort_values(
+    by="Impact",
+    ascending=False
+).head(3)
+        negative_features = importance_df[
+    importance_df["Impact"] < 0
+].sort_values(
+    by="Impact"
+).head(3)
+        st.markdown("""
+<div style="
+    font-size:10px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:rgba(212,175,55,0.45);
+    margin-bottom:10px;
+    margin-top:20px;
+    font-weight:500;
+">
+    Model Interpretation
+</div>
+""", unsafe_allow_html=True)
+        col_pos, col_neg = st.columns(2)
+        with col_pos:
+            st.success("Top Positive Influences:")
+            for _,row in positive_features.iterrows():
+                st.write(f"• {row['ReadableFeature']}")
+        with col_neg:
+            st.error("Top Negative Influences:")
+            for _,row in negative_features.iterrows():
+                st.write(f"• {row['ReadableFeature']}")
+        st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
+        intel_col1, intel_col2, intel_col3 = st.columns([1,2,1])
+        with intel_col2:
+
+            st.markdown("""
+<style>
+div[data-testid="stButton"] button[kind="secondary"] {
+    background: linear-gradient(
+        135deg,
+        #c9a227 0%,
+        #d4af37 40%,
+        #f0d060 100%
+    ) !important;
+
+    color: #080808 !important;
+    border: none !important;
+    border-radius: 14px !important;
+    height: 52px !important;
+
+    font-size: 13px !important;
+    font-weight: 700 !important;
+
+    letter-spacing: 2px !important;
+    text-transform: uppercase !important;
+
+    transition: all 0.3s ease !important;
+
+    box-shadow:
+        0 8px 24px rgba(212,175,55,0.25) !important;
+}
+
+div[data-testid="stButton"] button[kind="secondary"]:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 12px 36px rgba(212,175,55,0.4) !important;
+
+    color: #080808 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+            if st.button("Open Match Intelligence Dashboard",type="secondary"):
+                st.session_state.page = "Intelligence"
+                st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)  # close main-pad
+# -----------------------------------
+# MATCH INTELLIGENCE PAGE
+# -----------------------------------
+# -----------------------------------
+# MATCH INTELLIGENCE PAGE
+# -----------------------------------
+
+# -----------------------------------
+# MATCH INTELLIGENCE PAGE
+# -----------------------------------
+
+elif st.session_state.page == "Intelligence":
+
+    if st.session_state.last_prediction is None:
+        st.warning("Run a match analysis first.")
+        st.stop()
+
+    data = st.session_state.last_prediction
+
+    batting_team = data["batting_team"]
+    bowling_team = data["bowling_team"]
+    win = data["win"]
+    lose = data["lose"]
+    crr = data["crr"]
+    rrr = data["rrr"]
+    runs_left = data["runs_left"]
+    balls_left = data["balls_left"]
+    wickets_left = data["wickets_left"]
+
+    pressure_index = round(rrr - crr, 2)
+
+    if pressure_index < 0:
+        pressure_state = "Comfortable Chase"
+    elif pressure_index < 2:
+        pressure_state = "Balanced Pressure"
+    elif pressure_index < 4:
+        pressure_state = "High Pressure"
+    else:
+        pressure_state = "Extreme Pressure"
+
+
+    confidence = max(win, lose)
+
+    confidence_label = (
+        "High" if confidence > 0.75
+        else "Moderate" if confidence > 0.55
+        else "Close"
+    )
+
+    # PAGE HEADER
+    st.markdown("""
+    <div class="hero-wrapper">
+        <div class="hero-eyebrow">Advanced Match Intelligence</div>
+        <div class="hero-title" style="font-size:56px;">Intelligence Dashboard</div>
+        <div class="hero-subtitle">Tactical match analytics powered by machine learning and live chase intelligence.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="main-pad">', unsafe_allow_html=True)
+    st.markdown('<div style="height:30px;"></div>', unsafe_allow_html=True)
+
+    # ROW 1
+    row1_col1, row1_col2 = st.columns(2)
+
+    # PRESSURE ANALYSIS
+    with row1_col1:
+        st.markdown(f"""
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(212,175,55,0.1); border-radius:20px; padding:28px; margin-bottom:20px;">
+            <div style="font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(212,175,55,0.45); margin-bottom:18px; font-weight:500;">
+                Pressure Analysis
+            </div>
+            <div style="font-family:'DM Mono', monospace; font-size:64px; color:#f0d060; line-height:1; margin-bottom:10px;">
+                {pressure_index}
+            </div>
+            <div style="font-size:14px; color:rgba(230,220,180,0.7); margin-bottom:10px;">
+                {pressure_state}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        pressure_fig = px.bar(
+            x=["Current RR", "Required RR"],
+            y=[crr, rrr],
+            color=["Current RR", "Required RR"]
+        )
+        pressure_fig.update_layout(
+            template="plotly_dark",
+            plot_bgcolor="#080808",
+            paper_bgcolor="#080808",
+            font=dict(color="#e2dfd8"),
+            height=320,
+            margin=dict(l=20, r=20, t=20, b=20),
+            showlegend=False
+        )
+        st.plotly_chart(pressure_fig, use_container_width=True)
+
+    # WIN PROBABILITY
+    with row1_col2:
+        st.markdown("""
+        <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(212,175,55,0.1); border-radius:20px; padding:28px; margin-bottom:20px;">
+            <div style="font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(212,175,55,0.45); margin-bottom:18px; font-weight:500;">
+                Win Probability Breakdown
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        donut_fig = px.pie(
+            names=[batting_team, bowling_team],
+            values=[win * 100, lose * 100],
+            hole=0.65
+        )
+        donut_fig.update_layout(
+            template="plotly_dark",
+            plot_bgcolor="#080808",
+            paper_bgcolor="#080808",
+            font=dict(color="#e2dfd8"),
+            height=320,
+            margin=dict(l=20, r=20, t=20, b=20),
+            showlegend=True
+        )
+        st.plotly_chart(donut_fig, use_container_width=True)
+
+    # RADAR CHART
+    st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size:10px; letter-spacing:3px; text-transform:uppercase; color:rgba(212,175,55,0.45); margin-bottom:18px; font-weight:500;">
+        Match Situation Radar
+    </div>
+    """, unsafe_allow_html=True)
+
+    radar_fig = px.line_polar(
+        r=[crr, rrr, wickets_left, balls_left / 12, runs_left / 10],
+        theta=["Current RR", "Required RR", "Wickets Left", "Balls Left", "Runs Left"],
+        line_close=True
+    )
+    radar_fig.update_traces(fill='toself')
+    radar_fig.update_layout(
+        template="plotly_dark",
+        plot_bgcolor="#080808",
+        paper_bgcolor="#080808",
+        font=dict(color="#e2dfd8"),
+        height=500
+    )
+    st.plotly_chart(radar_fig, use_container_width=True)
+
+    # Close the main-pad div
+    st.markdown('</div>', unsafe_allow_html=True)
