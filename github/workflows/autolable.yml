@@ -1,29 +1,17 @@
 # ==========================================================
 # GitHub Actions Workflow
 # Purpose:
-# Automatically ensure that a label named
-# "GSSoC'26" exists and attach it whenever
-# a new issue is opened in the repository.
-#
-# Expanded version with comments and spacing
-# for readability and documentation.
+# Automatically ensure labels named
+# "GSSoC'26" and "NSoC'26" exist and attach
+# them whenever a new issue is opened.
 # ==========================================================
 
-name: "Auto-label GSSoC'26 on issue opened"
+name: "Auto-label GSSoC'26 and NSoC'26 on issue opened"
 
 
 
 # ==========================================================
 # Workflow Trigger Section
-# ==========================================================
-# This workflow runs automatically whenever
-# an issue is opened.
-#
-# Event:
-# issues
-#
-# Type:
-# opened
 # ==========================================================
 
 on:
@@ -36,13 +24,6 @@ on:
 # ==========================================================
 # Permission Configuration
 # ==========================================================
-# Grant permission to modify issues.
-#
-# Required because:
-# - Reading labels
-# - Creating labels
-# - Attaching labels
-# ==========================================================
 
 permissions:
   issues: write
@@ -53,26 +34,13 @@ permissions:
 # ==========================================================
 # Jobs Section
 # ==========================================================
-# Defines all workflow jobs.
-# ==========================================================
 
 jobs:
 
-  # ========================================================
-  # Job Name:
-  # add-nsoc-label
-  #
-  # Purpose:
-  # Ensure label exists and add it
-  # to newly opened issues.
-  # ========================================================
-
-  add-nsoc-label:
+  add-labels:
 
     # ======================================================
     # Runner Environment
-    #
-    # Using latest Ubuntu GitHub runner
     # ======================================================
 
     runs-on: ubuntu-latest
@@ -106,17 +74,26 @@ jobs:
           script: |
 
             // ============================================
-            // Define label name
+            // Define labels
             // ============================================
 
-            const label = "GSSoC'26";
+            const labels = [
+              {
+                name: "NSoC'26",
+                color: "0e8a16",
+                description: "Label for NSoC 2026 issues"
+              },
+              {
+                name: "GSSoC'26",
+                color: "1d76db",
+                description: "Label for GSSoC 2026 issues"
+              }
+            ];
 
 
 
             // ============================================
-            // Get repository details
-            // owner → repository owner
-            // repo → repository name
+            // Repository details
             // ============================================
 
             const { owner, repo } = context.repo;
@@ -124,40 +101,36 @@ jobs:
 
 
             // ============================================
-            // Attempt to locate label
-            //
-            // If label exists:
-            // Continue normally
-            //
-            // If label does not exist:
-            // Create new label
+            // Ensure labels exist
             // ============================================
 
-            try {
+            for (const label of labels) {
 
-              await github.rest.issues.getLabel({
+              try {
 
-                owner,
-                repo,
-                name: label
+                await github.rest.issues.getLabel({
 
-              });
+                  owner,
+                  repo,
+                  name: label.name
 
-            }
+                });
 
-            catch (err) {
+              }
 
-              // ==========================================
-              // Create label if missing
-              // ==========================================
+              catch (err) {
 
-              await github.rest.issues.createLabel({
+                await github.rest.issues.createLabel({
 
-                owner: owner,
+                  owner,
+                  repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
 
-                repo: repo,
+                })
 
-                name: label,
+                .catch(() => {});
 
                 color: "0e8a16",
 
@@ -182,24 +155,24 @@ jobs:
 
 
             // ============================================
-            // Add label to newly opened issue
+            // Add labels to new issue
             // ============================================
 
             await github.rest.issues.addLabels({
 
               owner,
-
               repo,
-
               issue_number:
                 context.payload.issue.number,
 
-              labels: [label]
+              labels: labels.map(
+                label => label.name
+              )
 
             });
 
 
 
             // ============================================
-            // End of workflow script
+            // End of workflow
             // ============================================
