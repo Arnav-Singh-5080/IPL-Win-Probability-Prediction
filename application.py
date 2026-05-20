@@ -1402,10 +1402,14 @@ if st.session_state.page == "Analysis":
         score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
         col_ov, col_wk = st.columns(2)
         with col_ov:
-            overs = st.slider("Overs Completed", min_value=1, max_value=19, value=10)
+            st.markdown("Overs Completed")
+            over_part = st.number_input("Overs", min_value=0, max_value=19, value=10, step=1)
+            ball_part = st.number_input("Balls (0–5)", min_value=0, max_value=5, value=0, step=1)
         with col_wk:
             wickets = st.number_input("Wickets Fallen", min_value=0, max_value=9, value=2)
+        overs = over_part + ball_part / 6
         st.markdown('</div>', unsafe_allow_html=True)
+        
 
     st.markdown('<div style="height:clamp(24px,4vw,32px);"></div>', unsafe_allow_html=True)
 
@@ -1493,8 +1497,11 @@ if st.session_state.page == "Analysis":
     # ---- PREDICTION OUTPUT ----
     if analyze:
         runs_left = target - score
-        balls_left = 120 - (overs * 6)
-        crr = score / overs if overs > 0 else 0
+        total_balls_bowled = (over_part * 6) + ball_part
+        TOTAL_OVERS = 20
+        balls_left = (TOTAL_OVERS * 6) - total_balls_bowled
+        overs_completed = total_balls_bowled / 6
+        crr = score / overs_completed if overs_completed > 0 else 0
         rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
         # ---- MATCH-STATE VALIDATION (Issue #31) ----
