@@ -2,1703 +2,1232 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
-import plotly.express as px
+import textwrap
+import plotly.graph_objects as go
 
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
-# -----------------------------------
-# CONFIG
-# -----------------------------------
-st.set_page_config(page_title="CricScope | IPL Analytics", layout="wide", initial_sidebar_state="expanded")
 
-# -----------------------------------
-# SESSION STATE
-# -----------------------------------
+st.set_page_config(
+    page_title="CricScope | IPL Analytics",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+
+def html(code):
+    code = textwrap.dedent(str(code)).strip()
+    code = "\n".join(line.lstrip() for line in code.splitlines())
+    st.markdown(code, unsafe_allow_html=True)
+
+
 if "page" not in st.session_state:
     st.session_state.page = "Dashboard"
-if "last_prediction" not in st.session_state:
-    st.session_state.last_prediction = None
+
 if "prob_history" not in st.session_state:
     st.session_state.prob_history = []
 
-# -----------------------------------
-# STADIUM NIGHT THEME CSS
-# -----------------------------------
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
 
-/* ---- STADIUM NIGHT PALETTE ---- */
-:root {
-    --stadium-bg: #020617;
-    --stadium-navy: #0f172a;
-    --stadium-blue: #1e293b;
-    --floodlight-gold: #fbbf24;
-    --floodlight-amber: #f59e0b;
-    --pitch-green: #10b981;
-    --pitch-dark: #059669;
-    --cricket-red: #dc2626;
-    --cricket-leather: #991b1b;
-    --light-beam: rgba(251, 191, 36, 0.15);
-    --glass-bg: rgba(15, 23, 42, 0.6);
-    --glass-border: rgba(251, 191, 36, 0.15);
+team_data = {
+    "Chennai Super Kings": {"abbr": "CSK", "color": "#FFD400", "dark": "#3A3200"},
+    "Delhi Capitals": {"abbr": "DC", "color": "#3B82F6", "dark": "#071D46"},
+    "Punjab Kings": {"abbr": "PBKS", "color": "#FF4444", "dark": "#3A0707"},
+    "Kolkata Knight Riders": {"abbr": "KKR", "color": "#A855F7", "dark": "#24103D"},
+    "Mumbai Indians": {"abbr": "MI", "color": "#60A5FA", "dark": "#092846"},
+    "Rajasthan Royals": {"abbr": "RR", "color": "#EC4899", "dark": "#3B1029"},
+    "Royal Challengers Bangalore": {"abbr": "RCB", "color": "#FF4D4D", "dark": "#3A0909"},
+    "Sunrisers Hyderabad": {"abbr": "SRH", "color": "#F97316", "dark": "#3B1904"},
+    "Lucknow Super Giants": {"abbr": "LSG", "color": "#06B6D4", "dark": "#06323B"},
+    "Gujarat Titans": {"abbr": "GT", "color": "#14B8A6", "dark": "#063831"},
+    "Deccan Chargers": {"abbr": "DC2", "color": "#2563EB", "dark": "#061D4E"},
+    "Pune Warriors India": {"abbr": "PWI", "color": "#0F766E", "dark": "#052D2A"},
+    "Rising Pune Supergiant": {"abbr": "RPS", "color": "#7C3AED", "dark": "#210D43"},
+    "Gujarat Lions": {"abbr": "GL", "color": "#F59E0B", "dark": "#3B2502"},
+    "Kochi Tuskers Kerala": {"abbr": "KTK", "color": "#10B981", "dark": "#053429"},
 }
 
-/* ---- BASE & RESET ---- */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body, [class*="css"], .stApp {
-    font-family: 'DM Sans', sans-serif;
-    color: #e2e8f0;
+html("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+--bg: #05070A;
+--panel: #0C1420;
+--panel2: #111D2B;
+--panel3: #17263A;
+--text: #F4F7FB;
+--muted: #A6B8D0;
+--faint: #61758E;
+--gold: #D4A843;
+--green: #22C87A;
+--red: #E05252;
+--border: rgba(255,255,255,0.10);
+--gold-border: rgba(212,168,67,0.35);
+}
+
+* {
+box-sizing: border-box;
+}
+
+html, body, .stApp, [class*="css"] {
+font-family: 'Inter', sans-serif;
+color: var(--text);
+background: var(--bg);
 }
 
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e1b4b 100%);
-    position: relative;
-    overflow-x: hidden;
-    min-height: 100vh;
+background:
+radial-gradient(circle at 16% 0%, rgba(212,168,67,0.10), transparent 26%),
+radial-gradient(circle at 86% 14%, rgba(59,130,246,0.10), transparent 28%),
+linear-gradient(180deg, #05070A 0%, #080D14 52%, #05070A 100%);
 }
 
-/* ---- FLOODLIGHT BEAMS ---- */
-[data-testid="stAppViewContainer"]::before {
-    content: '';
-    position: fixed;
-    top: -20%;
-    left: -10%;
-    width: 50%;
-    height: 80%;
-    background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.12) 0%, transparent 70%);
-    transform: rotate(-20deg);
-    pointer-events: none;
-    z-index: 0;
-    filter: blur(40px);
+.block-container {
+max-width: 100% !important;
+padding: 0 !important;
 }
 
-[data-testid="stAppViewContainer"]::after {
-    content: '';
-    position: fixed;
-    top: -20%;
-    right: -10%;
-    width: 50%;
-    height: 80%;
-    background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.12) 0%, transparent 70%);
-    transform: rotate(20deg);
-    pointer-events: none;
-    z-index: 0;
-    filter: blur(40px);
+#MainMenu, footer, [data-testid="stDecoration"] {
+display: none !important;
 }
 
-/* ---- FLOATING CRICKET BALLS ---- */
-.cricket-ball-1, .cricket-ball-2, .cricket-ball-3 {
-    position: fixed;
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, #dc2626, #7f1d1d);
-    box-shadow: 0 0 40px rgba(220, 38, 38, 0.2), inset -5px -5px 15px rgba(0,0,0,0.4);
-    z-index: 0;
-    opacity: 0.08;
-    pointer-events: none;
-}
-
-.cricket-ball-1 {
-    width: 80px;
-    height: 80px;
-    top: 20%;
-    left: 5%;
-    animation: float-ball-1 8s ease-in-out infinite;
-}
-
-.cricket-ball-2 {
-    width: 60px;
-    height: 60px;
-    top: 60%;
-    right: 8%;
-    animation: float-ball-2 10s ease-in-out infinite;
-    background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706);
-    box-shadow: 0 0 40px rgba(251, 191, 36, 0.2);
-}
-
-.cricket-ball-3 {
-    width: 40px;
-    height: 40px;
-    bottom: 20%;
-    left: 15%;
-    animation: float-ball-3 7s ease-in-out infinite;
-}
-
-@keyframes float-ball-1 {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-30px) rotate(180deg); }
-}
-
-@keyframes float-ball-2 {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-40px) rotate(-180deg); }
-}
-
-@keyframes float-ball-3 {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(90deg); }
-}
-
-/* ---- PITCH GRASS OVERLAY ---- */
-.pitch-overlay {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 30%;
-    background: linear-gradient(to top, rgba(16, 185, 129, 0.03), transparent);
-    pointer-events: none;
-    z-index: 0;
-}
-
-/* ---- HIDE STREAMLIT BRANDING ---- */
-#MainMenu { visibility: hidden; }
-footer { visibility: hidden; }
-[data-testid="stDecoration"] { display: none; }
-
-/* ---- SIDEBAR ---- */
 section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-    border-right: 1px solid var(--glass-border);
-    width: 280px !important;
-    position: relative;
-    z-index: 10;
+width: 285px !important;
+background: #070C13;
+border-right: 1px solid var(--border);
 }
 
 section[data-testid="stSidebar"] > div {
-    padding: 0;
-    background: transparent;
+background: transparent;
 }
 
-/* Sidebar floodlight effect */
-section[data-testid="stSidebar"]::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 300px;
-    background: radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, 0.1) 0%, transparent 70%);
-    pointer-events: none;
+.sb-brand {
+padding: 34px 22px 24px;
+border-bottom: 1px solid var(--border);
 }
 
-.sidebar-brand {
-    padding: clamp(24px, 5vw, 40px) clamp(20px, 4vw, 28px) clamp(20px, 4vw, 28px);
-    border-bottom: 1px solid rgba(251, 191, 36, 0.15);
-    margin-bottom: 20px;
-    position: relative;
+.sb-logo {
+font-family: 'Syne', sans-serif;
+font-size: 23px;
+font-weight: 800;
+letter-spacing: 0.03em;
+color: var(--gold);
+line-height: 1.05;
+white-space: nowrap;
 }
 
-/* FIX 1: Prevent logo text from wrapping */
-.sidebar-logo-text {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(20px, 3.5vw, 28px);
-    font-weight: 700;
-    letter-spacing: 4px;
-    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    display: block;
-    margin-bottom: 6px;
-    text-shadow: 0 0 30px rgba(251, 191, 36, 0.3);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.sb-tag {
+margin-top: 10px;
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+font-weight: 700;
 }
 
-.sidebar-tagline {
-    font-size: clamp(9px, 2vw, 11px);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(251, 191, 36, 0.5);
-    font-weight: 500;
+.sb-sec {
+padding: 22px 24px 10px;
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.20em;
+text-transform: uppercase;
+font-weight: 700;
 }
 
-.sidebar-section-label {
-    font-size: clamp(9px, 1.5vw, 10px);
-    letter-spacing: 2.5px;
-    text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.5);
-    padding: clamp(12px, 2vw, 16px) clamp(20px, 4vw, 28px) 8px;
-    font-weight: 600;
-}
-
-/* ---- NAV BUTTONS ---- */
 .stButton > button {
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    color: rgba(226, 232, 240, 0.7);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(12px, 2vw, 14px);
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    padding: clamp(12px, 2vw, 14px) clamp(20px, 3vw, 28px);
-    height: auto;
-    min-height: 48px;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-    border-left: 3px solid transparent;
+width: 100%;
+min-height: 46px;
+text-align: left;
+padding: 12px 24px;
+background: transparent;
+color: #CAD8EB;
+border: 0;
+border-left: 2px solid transparent;
+border-radius: 0;
+font-size: 14px;
+font-weight: 600;
+transition: all 0.18s ease;
 }
 
-.stButton > button:hover {
-    background: rgba(251, 191, 36, 0.08);
-    color: #fbbf24;
-    border-left: 3px solid #fbbf24;
-    padding-left: 32px;
+.stButton > button:hover,
+.stButton > button:focus,
+.stButton > button:active {
+background: rgba(212,168,67,0.08);
+color: var(--gold);
+border-left-color: var(--gold);
+box-shadow: none !important;
 }
 
-.stButton > button:active,
-.stButton > button:focus {
-    background: rgba(251, 191, 36, 0.12);
-    color: #fbbf24;
-    border-left: 3px solid #fbbf24;
-    outline: none;
+.sb-divider {
+height: 1px;
+background: var(--border);
+margin: 20px 20px 10px;
 }
 
-/* ---- MAIN CONTENT ---- */
-.block-container {
-    padding: 0 !important;
-    max-width: 100% !important;
-    position: relative;
-    z-index: 1;
+.sb-card {
+margin: 0 16px;
+padding: 16px;
+border-radius: 14px;
+background: linear-gradient(145deg, #111D2B, #0B111A);
+border: 1px solid var(--border);
 }
 
-/* ---- HERO SECTION ---- */
-.hero-wrapper {
-    padding: clamp(40px, 8vw, 80px) clamp(20px, 8vw, 60px) clamp(32px, 6vw, 48px);
-    border-bottom: 1px solid rgba(251, 191, 36, 0.1);
-    position: relative;
-    overflow: hidden;
-    background: radial-gradient(ellipse at 50% 0%, rgba(251, 191, 36, 0.05) 0%, transparent 50%);
+.sb-avatar {
+width: 42px;
+height: 42px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+color: var(--gold);
+border: 1px solid var(--gold-border);
+background: rgba(212,168,67,0.10);
+font-family: 'Syne', sans-serif;
+font-weight: 800;
+margin-bottom: 12px;
 }
 
-.hero-eyebrow {
-    font-size: clamp(10px, 2vw, 12px);
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: rgba(251, 191, 36, 0.7);
-    margin-bottom: clamp(16px, 3vw, 24px);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.sb-name {
+font-weight: 800;
+font-size: 13px;
+margin-bottom: 4px;
 }
 
-.hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    border-radius: 100px;
-    padding: 6px 16px;
-    font-size: clamp(10px, 2vw, 12px);
-    color: #10b981;
-    letter-spacing: 1px;
-    margin-bottom: clamp(20px, 4vw, 28px);
-    backdrop-filter: blur(10px);
+.sb-role {
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.13em;
+text-transform: uppercase;
+margin-bottom: 12px;
+}
+
+.sb-link {
+display: block;
+color: var(--muted);
+font-size: 11px;
+text-decoration: none;
+margin-top: 8px;
+overflow-wrap: anywhere;
+}
+
+.sb-link:hover {
+color: var(--gold);
+}
+
+.sb-ver {
+text-align: center;
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.14em;
+padding: 18px 0;
+}
+
+.hero {
+padding: 56px 56px 46px;
+border-bottom: 1px solid var(--border);
+background:
+radial-gradient(circle at 80% 12%, rgba(212,168,67,0.16), transparent 25%),
+linear-gradient(145deg, rgba(17,29,43,0.96), rgba(5,7,10,0.98));
+}
+
+.hero-pill {
+display: inline-flex;
+align-items: center;
+gap: 8px;
+border: 1px solid rgba(34,200,122,0.28);
+background: rgba(34,200,122,0.08);
+color: var(--green);
+border-radius: 100px;
+padding: 6px 14px;
+font-size: 11px;
+font-weight: 700;
+letter-spacing: 0.04em;
+margin-bottom: 26px;
 }
 
 .hero-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #10b981;
-    box-shadow: 0 0 10px #10b981;
-    animation: pulse-dot 2s infinite;
+width: 7px;
+height: 7px;
+border-radius: 50%;
+background: var(--green);
+animation: pulseDot 1.8s infinite;
 }
 
-@keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px #10b981; }
-    50% { opacity: 0.6; transform: scale(0.8); box-shadow: 0 0 20px #10b981; }
+@keyframes pulseDot {
+0%, 100% { opacity: 1; transform: scale(1); }
+50% { opacity: 0.45; transform: scale(0.75); }
 }
 
 .hero-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(40px, 10vw, 96px);
-    font-weight: 700;
-    line-height: 0.9;
-    letter-spacing: -2px;
-    background: linear-gradient(135deg, #ffffff 0%, #fbbf24 50%, #f59e0b 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: clamp(16px, 3vw, 24px);
-    text-shadow: 0 0 60px rgba(251, 191, 36, 0.3);
+font-family: 'Syne', sans-serif;
+font-size: clamp(52px, 7vw, 92px);
+line-height: 0.92;
+font-weight: 800;
+letter-spacing: -0.02em;
 }
 
-.hero-subtitle {
-    font-size: clamp(14px, 3vw, 18px);
-    color: rgba(226, 232, 240, 0.6);
-    font-weight: 400;
-    letter-spacing: 0.5px;
-    max-width: 520px;
-    line-height: 1.7;
+.hero-title span {
+color: var(--gold);
 }
 
-/* ---- STAT PILLS ---- */
-.stats-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(12px, 3vw, 20px);
-    padding: clamp(24px, 4vw, 32px) clamp(20px, 8vw, 60px);
-    border-bottom: 1px solid rgba(251, 191, 36, 0.08);
-    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.03), transparent);
+.hero-sub {
+margin-top: 20px;
+max-width: 560px;
+color: var(--muted);
+font-size: 15px;
+line-height: 1.7;
 }
 
-.stat-pill {
-    flex: 1;
-    min-width: clamp(120px, 20vw, 160px);
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(251, 191, 36, 0.15);
-    border-radius: 16px;
-    padding: clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px);
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    position: relative;
-    overflow: hidden;
+.stat-strip {
+display: grid;
+grid-template-columns: repeat(5, 1fr);
+background: rgba(8,13,20,0.90);
+border-bottom: 1px solid var(--border);
 }
 
-.stat-pill::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--floodlight-gold), transparent);
-    opacity: 0.5;
+.stat-cell {
+padding: 24px 30px;
+border-right: 1px solid var(--border);
 }
 
-.stat-pill:hover {
-    transform: translateY(-4px);
-    border-color: rgba(251, 191, 36, 0.4);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px rgba(251, 191, 36, 0.1);
+.stat-cell:last-child {
+border-right: 0;
 }
 
-.stat-value {
-    font-family: 'DM Mono', monospace;
-    font-size: clamp(24px, 4vw, 32px);
-    font-weight: 600;
-    color: #fbbf24;
-    line-height: 1;
-    margin-bottom: 8px;
-    text-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+.stat-num {
+font-family: 'JetBrains Mono', monospace;
+font-size: 27px;
+color: var(--gold);
+margin-bottom: 6px;
 }
 
-.stat-label {
-    font-size: clamp(9px, 1.5vw, 11px);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.6);
-    font-weight: 500;
+.stat-lbl {
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+font-weight: 800;
 }
 
-/* ---- SECTION HEADERS ---- */
-.section-header {
-    padding: clamp(32px, 6vw, 48px) clamp(20px, 8vw, 60px) 0;
+.sec {
+padding: 42px 56px 0;
 }
 
-.section-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(28px, 6vw, 40px);
-    font-weight: 600;
-    color: #f8fafc;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    position: relative;
-    display: inline-block;
+.sec-kicker {
+color: var(--gold);
+font-size: 10px;
+letter-spacing: 0.34em;
+text-transform: uppercase;
+margin-bottom: 12px;
 }
 
-.section-title::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 0;
-    width: 60px;
-    height: 3px;
-    background: linear-gradient(90deg, #fbbf24, transparent);
-    border-radius: 3px;
+.sec-title {
+font-family: 'Syne', sans-serif;
+font-size: 28px;
+font-weight: 800;
 }
 
-.section-desc {
-    font-size: clamp(12px, 2vw, 14px);
-    color: rgba(148, 163, 184, 0.7);
-    letter-spacing: 0.5px;
-    margin-top: 16px;
+.sec-desc {
+color: var(--faint);
+font-size: 12px;
+margin-top: 4px;
 }
 
-/* ---- INPUT CARDS ---- */
-.input-card {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(251, 191, 36, 0.15);
-    border-radius: 24px;
-    padding: clamp(24px, 4vw, 32px);
-    backdrop-filter: blur(20px);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
+.pad {
+padding: 30px 56px 70px;
 }
 
-.input-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.3), transparent);
+.team-orb,
+.wr-orb,
+.fixture-orb {
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+font-family: 'Syne', sans-serif;
+font-weight: 800;
+letter-spacing: 0.08em;
+color: var(--orb-color);
+background:
+radial-gradient(circle at 30% 24%, rgba(255,255,255,0.16), transparent 22%),
+radial-gradient(circle at center, var(--orb-dark), #05070A 70%);
+border: 1px solid var(--orb-color);
+box-shadow:
+0 0 26px color-mix(in srgb, var(--orb-color) 38%, transparent),
+inset 0 0 24px rgba(255,255,255,0.04);
+text-shadow: 0 0 18px color-mix(in srgb, var(--orb-color) 60%, transparent);
+position: relative;
+overflow: hidden;
 }
 
-.input-card:hover {
-    border-color: rgba(251, 191, 36, 0.3);
-    box-shadow: 0 0 40px rgba(251, 191, 36, 0.05);
+.team-orb::after,
+.fixture-orb::after {
+content: "";
+position: absolute;
+inset: -45%;
+background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.22) 50%, transparent 60%);
+transform: translateX(-80%) rotate(12deg);
+transition: transform 0.7s ease;
 }
 
-.input-label {
-    font-size: clamp(10px, 1.5vw, 12px);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(251, 191, 36, 0.8);
-    margin-bottom: clamp(16px, 2vw, 20px);
-    font-weight: 600;
+.tc:hover .team-orb::after,
+.fx:hover .fixture-orb::after {
+transform: translateX(80%) rotate(12deg);
 }
 
-/* ---- STREAMLIT INPUT OVERRIDES ---- */
-.stSelectbox > div > div,
-.stNumberInput > div > div > input,
-.stSlider > div {
-    background: rgba(30, 41, 59, 0.6) !important;
-    border: 1px solid rgba(251, 191, 36, 0.2) !important;
-    border-radius: 12px !important;
-    color: #f1f5f9 !important;
-    font-family: 'DM Sans', sans-serif !important;
+.team-orb {
+width: 96px;
+height: 96px;
+margin: 0 auto 16px;
+font-size: 22px;
 }
 
-.stSelectbox label, .stNumberInput label, .stSlider label, .stTextInput label {
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: clamp(10px, 1.5vw, 11px) !important;
-    letter-spacing: 2px !important;
-    text-transform: uppercase !important;
-    color: rgba(251, 191, 36, 0.7) !important;
-    font-weight: 600 !important;
+.wr-orb {
+width: 42px;
+height: 42px;
+flex-shrink: 0;
+font-size: 11px;
+letter-spacing: 0.02em;
 }
 
-/* Slider track */
-.stSlider [data-testid="stSlider"] > div {
-    background: rgba(251, 191, 36, 0.2) !important;
-    height: 6px !important;
-    border-radius: 3px !important;
+.fixture-orb {
+width: 116px;
+height: 116px;
+margin: 0 auto;
+font-size: 27px;
 }
 
-.stSlider [data-testid="stSlider"] > div > div {
-    background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
-    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5) !important;
+.tc {
+min-height: 205px;
+padding: 30px 16px 24px;
+text-align: center;
+border-radius: 16px;
+border: 1px solid var(--border);
+background:
+radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--card-color) 12%, transparent), transparent 42%),
+linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+margin-bottom: 18px;
+transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
 }
 
-/* ---- TEAM VS CARD ---- */
-.team-vs-wrapper {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(251, 191, 36, 0.15);
-    border-radius: 32px;
-    padding: clamp(28px, 5vw, 48px) clamp(24px, 4vw, 40px);
-    text-align: center;
-    backdrop-filter: blur(20px);
-    position: relative;
-    overflow: hidden;
+.tc:hover {
+transform: translateY(-6px) scale(1.015);
+border-color: var(--card-color);
+box-shadow: 0 18px 45px rgba(0,0,0,0.36);
 }
 
-.team-vs-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(251, 191, 36, 0.08) 0%, transparent 60%);
-    pointer-events: none;
+.tc-abbr {
+font-family: 'Syne', sans-serif;
+font-size: 19px;
+font-weight: 800;
+letter-spacing: 0.10em;
+margin-bottom: 8px;
 }
 
-.vs-divider {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(48px, 10vw, 72px);
-    font-weight: 300;
-    color: rgba(251, 191, 36, 0.3);
-    line-height: 1;
-    letter-spacing: -4px;
-    text-shadow: 0 0 30px rgba(251, 191, 36, 0.2);
+.tc-name {
+font-size: 11px;
+color: var(--muted);
 }
 
-.team-abbr {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(20px, 4vw, 28px);
-    font-weight: 700;
-    letter-spacing: 4px;
-    margin-top: 20px;
-    color: #f8fafc;
+.wr {
+border-radius: 14px;
+border: 1px solid var(--border);
+background: linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+padding: 15px;
+margin-bottom: 13px;
+transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-/* ---- ANALYZE BUTTON ---- */
-.stButton.analyze-btn > button {
-    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%);
-    color: #0f172a;
-    border: none;
-    border-radius: 16px;
-    height: clamp(56px, 10vw, 64px);
-    font-family: 'DM Sans', sans-serif;
-    font-size: clamp(13px, 2vw, 15px);
-    font-weight: 700;
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    transition: all 0.4s ease;
-    box-shadow: 0 10px 40px rgba(245, 158, 11, 0.3), 0 0 0 0 rgba(251, 191, 36, 0);
-    width: 100%;
-    position: relative;
-    overflow: hidden;
+.wr:hover {
+transform: translateY(-3px);
+border-color: var(--gold-border);
 }
 
-.stButton.analyze-btn > button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    transition: left 0.5s;
-}
-
-.stButton.analyze-btn > button:hover {
-    box-shadow: 0 15px 50px rgba(245, 158, 11, 0.5), 0 0 60px rgba(251, 191, 36, 0.2);
-    transform: translateY(-3px);
-    filter: brightness(1.1);
-}
-
-.stButton.analyze-btn > button:hover::before {
-    left: 100%;
-}
-
-/* ---- PREDICTION CARDS ---- */
-.prediction-card {
-    background: rgba(15, 23, 42, 0.6);
-    border: 1px solid rgba(251, 191, 36, 0.25);
-    border-radius: 28px;
-    padding: clamp(28px, 5vw, 40px);
-    position: relative;
-    overflow: hidden;
-    backdrop-filter: blur(20px);
-}
-
-.prediction-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, transparent, #fbbf24, transparent);
-    box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
-}
-
-.prediction-card::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(251, 191, 36, 0.1) 0%, transparent 60%);
-    pointer-events: none;
-}
-
-.prediction-label {
-    font-size: clamp(10px, 1.5vw, 11px);
-    letter-spacing: 4px;
-    text-transform: uppercase;
-    color: rgba(251, 191, 36, 0.6);
-    margin-bottom: clamp(20px, 4vw, 28px);
-    font-weight: 600;
-}
-
-.win-team-name {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(20px, 5vw, 32px);
-    font-weight: 600;
-    color: #f8fafc;
-    line-height: 1.2;
-    margin-bottom: 12px;
-}
-
-.win-probability {
-    font-family: 'DM Mono', monospace;
-    font-size: clamp(56px, 12vw, 80px);
-    font-weight: 600;
-    background: linear-gradient(135deg, #fbbf24, #f59e0b);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1;
-    margin-bottom: 8px;
-    text-shadow: 0 0 40px rgba(251, 191, 36, 0.3);
-}
-
-.win-prob-label {
-    font-size: clamp(10px, 1.5vw, 11px);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.5);
-    margin-bottom: clamp(24px, 4vw, 32px);
-    font-weight: 500;
-}
-
-/* ---- PROGRESS BAR ---- */
-.prob-bar-track {
-    height: 8px;
-    background: rgba(30, 41, 59, 0.8);
-    border-radius: 100px;
-    overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
-}
-
-.prob-bar-fill {
-    height: 100%;
-    border-radius: 100px;
-    background: linear-gradient(90deg, #f59e0b, #fbbf24, #fcd34d);
-    transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
-    position: relative;
-    overflow: hidden;
-}
-
-.prob-bar-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-}
-
-.prob-bar-labels {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 12px;
-    font-size: clamp(11px, 2vw, 12px);
-    color: rgba(148, 163, 184, 0.6);
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 1px;
-}
-
-/* ---- METRICS ROW ---- */
-.metrics-row {
-    display: flex;
-    gap: clamp(10px, 2vw, 14px);
-    margin-top: clamp(20px, 3vw, 24px);
-}
-
-.metric-chip {
-    flex: 1;
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(251, 191, 36, 0.15);
-    border-radius: 16px;
-    padding: clamp(12px, 2vw, 16px);
-    text-align: center;
-    min-height: 60px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    transition: all 0.3s ease;
-}
-
-.metric-chip:hover {
-    border-color: rgba(251, 191, 36, 0.3);
-    transform: translateY(-2px);
-}
-
-.metric-chip-value {
-    font-family: 'DM Mono', monospace;
-    font-size: clamp(18px, 3vw, 20px);
-    color: #fbbf24;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-
-.metric-chip-label {
-    font-size: clamp(8px, 1.5vw, 9px);
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: rgba(148, 163, 184, 0.5);
-    font-weight: 600;
-}
-
-/* ---- STRAY COMPONENTS ---- */
-.stProgress > div > div {
-    background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
-    border-radius: 100px !important;
-    box-shadow: 0 0 10px rgba(251, 191, 36, 0.5) !important;
-}
-
-.stProgress > div {
-    background: rgba(30, 41, 59, 0.8) !important;
-    border-radius: 100px !important;
-    height: 8px !important;
-}
-
-div[data-testid="metric-container"] {
-    background: rgba(15, 23, 42, 0.5);
-    border: 1px solid rgba(251, 191, 36, 0.15);
-    border-radius: 16px;
-    padding: clamp(16px, 3vw, 20px);
-    backdrop-filter: blur(10px);
-}
-
-div[data-testid="metric-container"] label {
-    color: rgba(251, 191, 36, 0.7) !important;
-    font-size: clamp(10px, 1.5vw, 11px) !important;
-    letter-spacing: 2px !important;
-    text-transform: uppercase !important;
-    font-weight: 600 !important;
-}
-
-div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-    font-family: 'DM Mono', monospace !important;
-    color: #fbbf24 !important;
-    font-size: clamp(24px, 5vw, 32px) !important;
-    font-weight: 600 !important;
-}
-
-/* ---- SCROLLBAR ---- */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: rgba(251, 191, 36, 0.3); border-radius: 6px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(251, 191, 36, 0.5); }
-
-/* ---- MAIN PADDING ---- */
-.main-pad {
-    padding: 0 clamp(20px, 8vw, 60px) clamp(40px, 8vw, 80px);
-}
-
-/* ---- SEPARATOR ---- */
-hr {
-    border: none;
-    border-top: 1px solid rgba(251, 191, 36, 0.1);
-    margin: 0;
-}
-
-/* ---- MOBILE RESPONSIVE ---- */
-@media (max-width: 768px) {
-    .hero-wrapper {
-        padding: clamp(32px, 6vw, 48px) clamp(16px, 6vw, 32px);
-    }
-    
-    .hero-title {
-        font-size: clamp(36px, 12vw, 64px);
-    }
-    
-    .stats-row {
-        padding: clamp(16px, 3vw, 24px) clamp(16px, 6vw, 32px);
-    }
-    
-    .stat-pill {
-        min-width: calc(50% - 10px);
-        flex: 1 1 calc(50% - 10px);
-    }
-    
-    section[data-testid="stSidebar"] {
-        width: 260px !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .stat-pill {
-        min-width: 100%;
-        flex: 1 1 100%;
-    }
-    
-    .metrics-row {
-        flex-direction: column;
-    }
-    
-    .metric-chip {
-        min-width: 100%;
-    }
-}
-
-/* ---- ANIMATED BACKGROUND ELEMENTS ---- */
-.stadium-light-left, .stadium-light-right {
-    position: fixed;
-    width: 300px;
-    height: 600px;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.4;
-}
-
-.stadium-light-left {
-    top: -100px;
-    left: -100px;
-    background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.15) 0%, transparent 70%);
-    transform: rotate(-30deg);
-    filter: blur(60px);
-}
-
-.stadium-light-right {
-    top: -100px;
-    right: -100px;
-    background: radial-gradient(ellipse at center, rgba(251, 191, 36, 0.15) 0%, transparent 70%);
-    transform: rotate(30deg);
-    filter: blur(60px);
-}
-
-/* FIX 2: Team card abbreviation — prevent overflow truncation */
-.team-card-abbr {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(14px, 2.5vw, 20px);
-    font-weight: 700;
-    letter-spacing: 2px;
-    margin-top: clamp(10px, 2vw, 16px);
-    white-space: nowrap;
-    overflow: visible;
-}
-
-/* FIX 3: Win rate card layout */
-.wr-card {
-    background: rgba(15,23,42,0.5);
-    border: 1px solid rgba(251,191,36,0.1);
-    border-radius: 20px;
-    padding: 20px;
-    margin-bottom: 16px;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-}
-
-.wr-card-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.wr-logo-wrap {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    overflow: hidden;
-    background: #0f172a;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.wr-logo-wrap img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    mix-blend-mode: screen;
+.wr-top {
+display: flex;
+align-items: center;
+gap: 11px;
+margin-bottom: 11px;
 }
 
 .wr-info {
-    flex: 1;
-    min-width: 0;
+flex: 1;
+min-width: 0;
 }
 
 .wr-abbr {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+font-family: 'Syne', sans-serif;
+font-size: 12px;
+font-weight: 800;
 }
 
-.wr-record {
-    font-size: 10px;
-    color: rgba(148,163,184,0.4);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+.wr-rec {
+font-size: 10px;
+color: var(--faint);
 }
 
 .wr-pct {
-    font-family: 'DM Mono', monospace;
-    font-size: 22px;
-    font-weight: 600;
-    color: #fbbf24;
-    flex-shrink: 0;
+font-family: 'JetBrains Mono', monospace;
+color: var(--gold);
+font-size: 16px;
 }
 
-.wr-bar-track {
-    height: 6px;
-    background: rgba(30,41,59,0.8);
-    border-radius: 100px;
-    overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+.wr-track {
+height: 5px;
+background: var(--panel3);
+border-radius: 100px;
+overflow: hidden;
+}
+
+.wr-fill {
+height: 100%;
+border-radius: 100px;
+}
+
+.a-hero {
+padding: 38px 56px 32px;
+}
+
+.a-hero .hero-title {
+font-size: clamp(38px, 5vw, 62px);
+}
+
+.ic {
+border-radius: 16px;
+border: 1px solid var(--border);
+background: linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+padding: 24px;
+}
+
+.ic-lbl {
+color: var(--gold);
+font-size: 9px;
+letter-spacing: 0.20em;
+text-transform: uppercase;
+font-weight: 800;
+margin-bottom: 16px;
+}
+
+.stSelectbox label,
+.stNumberInput label,
+.stSlider label {
+color: var(--faint) !important;
+font-size: 10px !important;
+letter-spacing: 0.12em !important;
+text-transform: uppercase !important;
+font-weight: 700 !important;
+}
+
+div[data-baseweb="select"] > div,
+.stNumberInput input {
+background: var(--panel3) !important;
+border: 1px solid var(--border) !important;
+color: var(--text) !important;
+border-radius: 10px !important;
+min-height: 44px !important;
+}
+
+.fx {
+text-align: center;
+border-radius: 16px;
+border: 1px solid var(--border);
+background:
+radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--card-color) 13%, transparent), transparent 42%),
+linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+padding: 32px 20px;
+transition: transform 0.22s ease, border-color 0.22s ease;
+}
+
+.fx:hover {
+transform: translateY(-4px);
+border-color: var(--card-color);
+}
+
+.vs-wrap {
+min-height: 190px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: rgba(212,168,67,0.24);
+font-family: 'Syne', sans-serif;
+font-size: 58px;
+font-weight: 800;
+}
+
+.badge {
+display: inline-block;
+margin-top: 12px;
+padding: 6px 13px;
+border-radius: 7px;
+background: var(--panel3);
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+font-weight: 800;
+}
+
+.run-btn .stButton > button {
+background: var(--gold) !important;
+color: #05070A !important;
+text-align: center !important;
+border-radius: 13px !important;
+height: 54px !important;
+border-left: none !important;
+font-family: 'Syne', sans-serif !important;
+font-weight: 800 !important;
+letter-spacing: 0.10em !important;
+text-transform: uppercase !important;
+}
+
+.pc,
+.pc-dim {
+border-radius: 16px;
+padding: 28px;
+background: linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+}
+
+.pc {
+border: 1px solid var(--gold-border);
+}
+
+.pc-dim {
+border: 1px solid var(--border);
+}
+
+.pc-eye,
+.pc-sub,
+.v-lbl {
+color: var(--faint);
+font-size: 9px;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+font-weight: 800;
+}
+
+.pc-team,
+.v-team {
+font-family: 'Syne', sans-serif;
+font-size: 21px;
+font-weight: 800;
+margin: 12px 0 18px;
+}
+
+.pc-pct,
+.pc-pct-d {
+font-family: 'JetBrains Mono', monospace;
+font-size: 68px;
+line-height: 1;
+}
+
+.pc-pct {
+color: var(--gold);
+}
+
+.pc-pct-d {
+color: var(--faint);
+}
+
+.bar {
+height: 5px;
+background: var(--panel3);
+border-radius: 100px;
+overflow: hidden;
+margin: 18px 0 8px;
+}
+
+.bar-g {
+height: 100%;
+background: var(--gold);
+}
+
+.bar-d {
+height: 100%;
+background: var(--faint);
+}
+
+.bar-lbls {
+display: flex;
+justify-content: space-between;
+color: var(--faint);
+font-size: 10px;
+font-family: 'JetBrains Mono', monospace;
+margin-bottom: 18px;
+}
+
+.chips {
+display: flex;
+gap: 9px;
+}
+
+.chip {
+flex: 1;
+padding: 11px 8px;
+border-radius: 10px;
+background: var(--panel3);
+border: 1px solid var(--border);
+text-align: center;
+}
+
+.chip-v {
+font-family: 'JetBrains Mono', monospace;
+font-size: 16px;
+color: var(--text);
+}
+
+.chip-l {
+color: var(--faint);
+font-size: 8px;
+letter-spacing: 0.14em;
+text-transform: uppercase;
+font-weight: 800;
+}
+
+.verdict {
+margin-top: 20px;
+padding: 22px 28px;
+border-radius: 14px;
+border: 1px solid var(--border);
+background: linear-gradient(145deg, rgba(17,29,43,0.96), rgba(8,13,20,0.96));
+display: flex;
+justify-content: space-between;
+gap: 16px;
+flex-wrap: wrap;
+}
+
+.v-conf {
+font-family: 'JetBrains Mono', monospace;
+font-size: 19px;
+}
+
+.cta {
+margin-top: 44px;
+padding: 28px 34px;
+text-align: center;
+border-radius: 16px;
+border: 1px solid var(--gold-border);
+background: linear-gradient(145deg, rgba(212,168,67,0.12), rgba(17,29,43,0.96));
+}
+
+.cta-lbl {
+color: var(--green);
+font-size: 9px;
+letter-spacing: 0.22em;
+text-transform: uppercase;
+font-weight: 800;
+margin-bottom: 8px;
+}
+
+.cta-txt {
+font-family: 'Syne', sans-serif;
+font-size: 20px;
+font-weight: 800;
+}
+
+@media (max-width: 950px) {
+.hero, .a-hero, .sec, .pad {
+padding-left: 24px;
+padding-right: 24px;
+}
+
+.stat-strip {
+grid-template-columns: repeat(2, 1fr);
+}
 }
 </style>
+""")
 
-<!-- Floating Cricket Balls -->
-<div class="cricket-ball-1"></div>
-<div class="cricket-ball-2"></div>
-<div class="cricket-ball-3"></div>
 
-<!-- Stadium Lights -->
-<div class="stadium-light-left"></div>
-<div class="stadium-light-right"></div>
+def team_orb(team_name, size="team"):
+    d = team_data[team_name]
 
-<!-- Pitch Overlay -->
-<div class="pitch-overlay"></div>
-""", unsafe_allow_html=True)
+    cls = {
+        "team": "team-orb",
+        "small": "wr-orb",
+        "fixture": "fixture-orb",
+    }[size]
 
-# -----------------------------------
-# TEAM DATA
-# FIX: Updated broken logo URLs for LSG, GT and others
-# -----------------------------------
-team_data = {
-    "Chennai Super Kings": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/2/2b/Chennai_Super_Kings_Logo.svg",
-        "abbr": "CSK", "color": "#facc15"
-    },
-    "Delhi Capitals": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/c/c2/Delhi_Capitals_Logo.png",
-        "abbr": "DC", "color": "#3b82f6"
-    },
-    "Punjab Kings": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/d/d4/Punjab_Kings_Logo.svg",
-        "abbr": "PBKS", "color": "#ef4444"
-    },
-    "Kolkata Knight Riders": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/4/4c/Kolkata_Knight_Riders_Logo.svg",
-        "abbr": "KKR", "color": "#7c3aed"
-    },
-    "Mumbai Indians": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/c/cd/Mumbai_Indians_Logo.svg",
-        "abbr": "MI", "color": "#3b82f6"
-    },
-    "Rajasthan Royals": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/6/60/Rajasthan_Royals_Logo.svg",
-        "abbr": "RR", "color": "#ec4899"
-    },
-    "Royal Challengers Bangalore": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/2/2a/Royal_Challengers_Bangalore_2020.svg",
-        "abbr": "RCB", "color": "#dc2626"
-    },
-    "Sunrisers Hyderabad": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/8/81/Sunrisers_Hyderabad.svg",
-        "abbr": "SRH", "color": "#f97316"
-    },
-    "Lucknow Super Giants": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/a/a6/Lucknow_Super_Giants_IPL_Logo.svg",
-        "abbr": "LSG",
-        "color": "#06b6d4"
-    },
-    "Gujarat Titans": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/0/09/Gujarat_Titans_Logo.svg",
-        "abbr": "GT",
-        "color": "#06b6d4"
-    },
-    "Deccan Chargers": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/7/70/DeccanChargersLogo.png",
-        "abbr": "DC2",
-        "color": "#2563eb"
-    },
-    "Pune Warriors India": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/4/46/Pune_Warriors_India_Logo.svg",
-        "abbr": "PWI",
-        "color": "#0f766e"
-    },
-    "Rising Pune Supergiant": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/f/f5/RisingPuneSupergiants.png",
-        "abbr": "RPS",
-        "color": "#7c3aed"
-    },
-    "Gujarat Lions": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/8/80/Gujarat_Lions.png",
-        "abbr": "GL",
-        "color": "#f59e0b"
-    },
-    "Kochi Tuskers Kerala": {
-        "logo": "https://upload.wikimedia.org/wikipedia/en/7/7e/Kochi_Tuskers_Kerala_Logo.png",
-        "abbr": "KTK",
-        "color": "#10b981"
-    }
-}
+    return (
+        f'<div class="{cls}" '
+        f'style="--orb-color:{d["color"]}; --orb-dark:{d["dark"]};">'
+        f'{d["abbr"]}'
+        f'</div>'
+    )
 
-# -----------------------------------
-# WIN RATE STATS
-# -----------------------------------
+
 @st.cache_data
 def compute_win_rates():
     matches = pd.read_csv("matches.csv")
-    valid_teams = set(team_data.keys())
 
     name_map = {
         "Delhi Daredevils": "Delhi Capitals",
         "Kings XI Punjab": "Punjab Kings",
         "Royal Challengers Bengaluru": "Royal Challengers Bangalore",
-        "Rising Pune Supergiants": "Rising Pune Supergiant"
+        "Rising Pune Supergiants": "Rising Pune Supergiant",
     }
-    matches["team1"] = matches["team1"].replace(name_map)
-    matches["team2"] = matches["team2"].replace(name_map)
-    matches["winner"] = matches["winner"].replace(name_map)
+
+    for col in ("team1", "team2", "winner"):
+        matches[col] = matches[col].replace(name_map)
 
     stats = {}
-    for team in valid_teams:
+
+    for team in team_data:
         played = matches[(matches["team1"] == team) | (matches["team2"] == team)]
         played = played[played["result"] == "normal"]
+
         wins = played[played["winner"] == team].shape[0]
         total = played.shape[0]
-        stats[team] = {"wins": wins, "total": total, "rate": round((wins / total * 100), 1) if total > 0 else 0}
+
+        stats[team] = {
+            "wins": wins,
+            "total": total,
+            "rate": round(wins / total * 100, 1) if total else 0,
+        }
+
     return stats
 
-win_stats = compute_win_rates()
 
-# -----------------------------------
-# MODEL
-# -----------------------------------
 @st.cache_resource
 def train_model():
     matches = pd.read_csv("matches.csv")
     deliveries = pd.read_csv("deliveries.csv")
 
-    df = deliveries.merge(matches, left_on='match_id', right_on='id')
+    df = deliveries.merge(matches, left_on="match_id", right_on="id")
 
-    total_df = df[df['inning'] == 1].groupby('match_id')['total_runs'].sum().reset_index()
-    total_df.rename(columns={'total_runs': 'target'}, inplace=True)
+    target_df = df[df["inning"] == 1].groupby("match_id")["total_runs"].sum().reset_index()
+    target_df.rename(columns={"total_runs": "target"}, inplace=True)
 
-    df = df.merge(total_df, on='match_id')
-    df = df[df['inning'] == 2]
+    df = df.merge(target_df, on="match_id")
+    df = df[df["inning"] == 2]
 
-    df['current_score'] = df.groupby('match_id')['total_runs'].cumsum()
-    df['runs_left'] = df['target'] - df['current_score']
-    df['balls_left'] = 120 - (df['over'] * 6 + df['ball'])
+    df["current_score"] = df.groupby("match_id")["total_runs"].cumsum()
+    df["runs_left"] = df["target"] - df["current_score"]
+    df["balls_left"] = 120 - (df["over"] * 6 + df["ball"])
 
-    df['player_dismissed'] = df['player_dismissed'].notna().astype(int)
-    df['wickets'] = df.groupby('match_id')['player_dismissed'].cumsum()
-    df['wickets'] = 10 - df['wickets']
+    df["player_dismissed"] = df["player_dismissed"].notna().astype(int)
+    df["wickets"] = 10 - df.groupby("match_id")["player_dismissed"].cumsum()
 
-    df['over'] = df['over'].replace(0, 0.1)
-
-    df['crr'] = df['current_score'] / (df['over'] + df['ball'] / 6)
-    df['rrr'] = (df['runs_left'] * 6) / df['balls_left']
+    df["over"] = df["over"].replace(0, 0.1)
+    df["crr"] = df["current_score"] / (df["over"] + df["ball"] / 6)
+    df["rrr"] = (df["runs_left"] * 6) / df["balls_left"]
 
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
+    df["result"] = np.where(df["batting_team"] == df["winner"], 1, 0)
 
-    df['result'] = np.where(df['batting_team'] == df['winner'], 1, 0)
+    final_df = df[
+        [
+            "batting_team",
+            "bowling_team",
+            "city",
+            "runs_left",
+            "balls_left",
+            "wickets",
+            "target",
+            "crr",
+            "rrr",
+            "result",
+        ]
+    ].dropna()
 
-    final_df = df[['batting_team', 'bowling_team', 'city',
-                   'runs_left', 'balls_left', 'wickets',
-                   'target', 'crr', 'rrr', 'result']]
-    final_df.dropna(inplace=True)
+    X = final_df.drop("result", axis=1)
+    y = final_df["result"]
 
-    X = final_df.drop('result', axis=1)
-    y = final_df['result']
+    preprocessor = ColumnTransformer(
+        [
+            (
+                "cat",
+                OneHotEncoder(handle_unknown="ignore"),
+                ["batting_team", "bowling_team", "city"],
+            ),
+            (
+                "num",
+                "passthrough",
+                ["runs_left", "balls_left", "wickets", "target", "crr", "rrr"],
+            ),
+        ]
+    )
 
-    preprocessor = ColumnTransformer([
-        ('cat', OneHotEncoder(handle_unknown='ignore'), ['batting_team', 'bowling_team', 'city']),
-        ('num', 'passthrough', ['runs_left', 'balls_left', 'wickets', 'target', 'crr', 'rrr'])
-    ])
+    model = Pipeline(
+        [
+            ("preprocessor", preprocessor),
+            (
+                "model",
+                XGBClassifier(
+                    n_estimators=100,
+                    learning_rate=0.1,
+                    max_depth=6,
+                    random_state=42,
+                    eval_metric="logloss",
+                ),
+            ),
+        ]
+    )
 
-    pipe = Pipeline([
-        ('preprocessor', preprocessor),
-        ('model', XGBClassifier(n_estimators=100, learning_rate=0.1, max_depth=6, random_state=42))
-    ])
+    model.fit(X, y)
+    return model
 
-    pipe.fit(X, y)
-    return pipe
 
+win_stats = compute_win_rates()
 pipe = train_model()
 
-# -----------------------------------
-# SIDEBAR
-# -----------------------------------
+
 with st.sidebar:
-    # FIX 1: Logo text on one line — reduced letter-spacing, nowrap enforced via CSS
-    st.markdown("""
-        <div class="sidebar-brand">
-            <span class="sidebar-logo-text">CRICSCOPE</span>
-            <span class="sidebar-tagline">Stadium Intelligence</span>
-        </div>
-    """, unsafe_allow_html=True)
+    html("""
+    <div class="sb-brand">
+    <div class="sb-logo">CRICSCOPE</div>
+    <div class="sb-tag">Stadium Intelligence</div>
+    </div>
+    <div class="sb-sec">Navigation</div>
+    """)
 
-    st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
-
-    if st.button("◈  Dashboard", key="nav_dash"):
+    if st.button("◈ Dashboard", key="nav_dash"):
         st.session_state.page = "Dashboard"
 
-    if st.button("◉  Match Analysis", key="nav_analysis"):
+    if st.button("◉ Match Analysis", key="nav_analysis"):
         st.session_state.page = "Analysis"
 
-    st.markdown('<div style="height:1px; background:rgba(251,191,36,0.1); margin:20px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-section-label">Built By</div>', unsafe_allow_html=True)
+    html("""
+    <div class="sb-divider"></div>
+    <div class="sb-sec">Built By</div>
+    <div class="sb-card">
+    <div class="sb-avatar">AS</div>
+    <div class="sb-name">Arnav Singh</div>
+    <div class="sb-role">ML · Data · Analytics</div>
+    <a class="sb-link" href="mailto:itsarnav.singh80@gmail.com">itsarnav.singh80@gmail.com</a>
+    <a class="sb-link" href="https://www.linkedin.com/in/arnav-singh-a87847351" target="_blank">LinkedIn Profile</a>
+    <a class="sb-link" href="https://github.com/Arnav-Singh-5080" target="_blank">GitHub Profile</a>
+    </div>
+    <div class="sb-ver">CricScope v2.0 · IPL Edition</div>
+    """)
 
-    st.markdown("""
-        <div style="padding:0 20px 10px;">
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.15);
-                        border-radius:20px;padding:24px 20px 16px;position:relative;overflow:hidden;
-                        backdrop-filter:blur(10px);">
-                <div style="position:absolute;top:0;left:0;right:0;height:60px;
-                            background:radial-gradient(ellipse at 50% 0%,rgba(251,191,36,0.1) 0%,transparent 70%);
-                            pointer-events:none;"></div>
-                <div style="width:48px;height:48px;border-radius:50%;
-                            background:linear-gradient(135deg,#f59e0b,#fbbf24);
-                            display:flex;align-items:center;justify-content:center;
-                            font-size:18px;font-weight:700;color:#0f172a;
-                            margin-bottom:14px;box-shadow:0 0 20px rgba(251,191,36,0.4);">AS</div>
-                <div style="font-size:18px;font-weight:600;color:#f8fafc;
-                            letter-spacing:0.5px;margin-bottom:4px;">Arnav Singh</div>
-                <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;
-                            color:rgba(251,191,36,0.6);margin-bottom:20px;font-weight:600;">ML · Data · Analytics</div>
-                <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.2),transparent);margin-bottom:14px;"></div>
-                <div style="font-size:11px;color:rgba(226,232,240,0.5);line-height:1.6;">
-                    Predictive analytics for modern cricket.
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
 
-    st.markdown("""
-        <div style="padding:0 20px;">
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.15);
-                        border-top:none;border-radius:0 0 20px 20px;padding:4px 12px 16px;">
-                <p style="margin:0 0 4px 0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">✉</span>
-                    <a href="mailto:itsarnav.singh80@gmail.com"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        itsarnav.singh80@gmail.com
-                    </a>
-                </p>
-                <p style="margin:0 0 4px 0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">in</span>
-                    <a href="https://www.linkedin.com/in/arnav-singh-a87847351" target="_blank"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        linkedin.com/in/arnav-singh
-                    </a>
-                </p>
-                <p style="margin:0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">◆</span>
-                    <a href="https://github.com/Arnav-Singh-5080" target="_blank"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        Arnav-Singh-5080
-                    </a>
-                </p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <div style="text-align:center;margin-top:20px;padding-bottom:28px;font-size:10px;
-                    letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.3);font-weight:500;">
-            CricScope v2.0 · IPL Edition
-        </div>
-    """, unsafe_allow_html=True)
-
-# -----------------------------------
-# DASHBOARD PAGE
-# -----------------------------------
 if st.session_state.page == "Dashboard":
+    html("""
+    <div class="hero">
+    <div class="hero-pill"><div class="hero-dot"></div>IPL Match Intelligence · Season 2025</div>
+    <div class="hero-title">Cric<span>Scope</span></div>
+    <div class="hero-sub">
+    Precision win probability powered by machine learning.
+    Track every ball, wicket, and pressure swing of a T20 chase.
+    </div>
+    </div>
 
-    st.markdown("""
-        <div class="hero-wrapper">
-            <div class="hero-eyebrow">
-                <span style="color:#10b981;">●</span> IPL Match Intelligence · Season 2025
-            </div>
-            <div class="hero-badge">
-                <div class="hero-dot"></div>
-                Live Predictions Active
-            </div>
-            <div class="hero-title">CricScope</div>
-            <div class="hero-subtitle">
-                Precision match analytics engineered for modern cricket.
-                Real-time win probability powered by machine learning 
-                under the stadium lights.
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    <div class="stat-strip">
+    <div class="stat-cell"><div class="stat-num">15</div><div class="stat-lbl">Franchises</div></div>
+    <div class="stat-cell"><div class="stat-num">XGB</div><div class="stat-lbl">ML Engine</div></div>
+    <div class="stat-cell"><div class="stat-num">120</div><div class="stat-lbl">Balls Tracked</div></div>
+    <div class="stat-cell"><div class="stat-num">6+</div><div class="stat-lbl">Key Signals</div></div>
+    <div class="stat-cell"><div class="stat-num">Live</div><div class="stat-lbl">Predictions</div></div>
+    </div>
 
-    st.markdown("""
-        <div class="stats-row">
-            <div class="stat-pill">
-                <div class="stat-value">15</div>
-                <div class="stat-label">IPL Teams</div>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-value">ML</div>
-                <div class="stat-label">XGBoost Engine</div>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-value">120</div>
-                <div class="stat-label">Balls Tracked</div>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-value">6+</div>
-                <div class="stat-label">Key Signals</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
+    <div class="sec">
+    <div class="sec-kicker">IPL Teams</div>
+    <div class="sec-title">Franchise Directory</div>
+    <div class="sec-desc">Logo-free animated team badges, so nothing depends on broken image links.</div>
+    </div>
+    """)
 
-    st.markdown("""
-        <div class="section-header">
-            <div class="section-title">Franchise Overview</div>
-            <div class="section-desc">All-time performance metrics and team statistics</div>
-        </div>
-    """, unsafe_allow_html=True)
+    html('<div class="pad">')
 
-    st.markdown('<div class="main-pad">', unsafe_allow_html=True)
-    
-    # FIX 2: Team cards — full abbreviation visible, no truncation
-    team_cols = st.columns(5)
-    for i, (team_name, tdata) in enumerate(team_data.items()):
-        color = tdata['color']
-        logo  = tdata['logo']
-        abbr  = tdata['abbr']
-        with team_cols[i % 5]:
-            st.markdown(f"""
-                <div style="
-                    background:rgba(15,23,42,0.5);
-                    border:1px solid rgba(251,191,36,0.1);
-                    border-radius:20px;
-                    padding:20px 12px;
-                    text-align:center;
-                    transition:all 0.3s ease;
-                    margin-bottom:16px;
-                    backdrop-filter:blur(10px);
-                    overflow:visible;
-                ">
-                    <div style="width:64px;height:64px;border-radius:50%;margin:0 auto;
-                                overflow:hidden;background:#0f172a;
-                                box-shadow:0 0 30px {color}40,0 0 0 1px rgba(251,191,36,0.1);
-                                display:flex;align-items:center;justify-content:center;">
-                        <img src="{logo}"
-                             style="width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;border-radius:50%;"
-                             onerror="this.style.display='none';" />
-                    </div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:700;
-                                color:{color};letter-spacing:2px;margin-top:14px;
-                                white-space:nowrap;overflow:visible;">
-                        {abbr}
-                    </div>
-                    <div style="font-size:10px;color:rgba(148,163,184,0.45);margin-top:5px;
-                                letter-spacing:0.3px;font-weight:500;word-break:break-word;line-height:1.4;">
-                        {team_name}
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+    cols = st.columns(4, gap="large")
 
-    # ---- WIN RATE STATS SECTION ----
-    st.markdown("""
-        <div style="margin-top:48px;">
-            <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(24px,5vw,32px);font-weight:600;
-                        color:#f8fafc;letter-spacing:1px;margin-bottom:32px;position:relative;display:inline-block;">
-                All-Time Win Rates
-                <div style="position:absolute;bottom:-8px;left:0;width:50px;height:3px;background:linear-gradient(90deg,#fbbf24,transparent);border-radius:3px;"></div>
+    for i, (name, data) in enumerate(team_data.items()):
+        with cols[i % 4]:
+            html(f"""
+            <div class="tc" style="--card-color:{data['color']};">
+            {team_orb(name, "team")}
+            <div class="tc-abbr" style="color:{data['color']};">{data['abbr']}</div>
+            <div class="tc-name">{name}</div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
+            """)
 
-    # FIX 3: Win rate cards — clean layout with correct stats display
-    wr_cols = st.columns(5)
-    for i, (team_name, tdata) in enumerate(team_data.items()):
-        s = win_stats.get(team_name, {"wins": 0, "total": 0, "rate": 0})
-        bar_pct = min(s["rate"], 100)
-        with wr_cols[i % 5]:
-            st.markdown(f"""
-                <div class="wr-card">
-                    <div class="wr-card-header">
-                        <div class="wr-logo-wrap" style="box-shadow:0 0 15px {tdata['color']}40;">
-                            <img src="{tdata['logo']}"
-                                 onerror="this.style.display='none';"
-                                 style="width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;" />
-                        </div>
-                        <div class="wr-info">
-                            <div class="wr-abbr" style="color:{tdata['color']};">{tdata['abbr']}</div>
-                            <div class="wr-record">{s['wins']}W / {s['total']}M</div>
-                        </div>
-                        <div class="wr-pct">{bar_pct}%</div>
-                    </div>
-                    <div class="wr-bar-track">
-                        <div style="height:100%;width:{bar_pct}%;border-radius:100px;
-                                    background:linear-gradient(90deg,{tdata['color']},{tdata['color']}99);
-                                    box-shadow:0 0 10px {tdata['color']}80;"></div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+    html("""
+    <div style="margin-top:42px; margin-bottom:20px;">
+    <div class="sec-kicker">Performance</div>
+    <div class="sec-title">All-Time Win Rates</div>
+    <div class="sec-desc">Historical performance across IPL seasons</div>
+    </div>
+    """)
 
-    st.markdown("""
-        <div style="margin-top:48px;text-align:center;">
-            <div style="display:inline-block;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
-                        border-radius:16px;padding:24px 40px;">
-                <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                            color:#10b981;margin-bottom:10px;font-weight:600;">Get Started</div>
-                <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#f8fafc;font-weight:500;">
-                    Navigate to Match Analysis →
-                </div>
+    win_cols = st.columns(4, gap="large")
+
+    for i, (name, data) in enumerate(team_data.items()):
+        stats = win_stats.get(name, {"wins": 0, "total": 0, "rate": 0})
+        pct = min(stats["rate"], 100)
+
+        with win_cols[i % 4]:
+            html(f"""
+            <div class="wr">
+            <div class="wr-top">
+            {team_orb(name, "small")}
+            <div class="wr-info">
+            <div class="wr-abbr" style="color:{data['color']};">{data['abbr']}</div>
+            <div class="wr-rec">{stats['wins']}W / {stats['total']}M</div>
             </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+            <div class="wr-pct">{pct}%</div>
+            </div>
+            <div class="wr-track">
+            <div class="wr-fill" style="width:{pct}%; background:{data['color']};"></div>
+            </div>
+            </div>
+            """)
 
-# -----------------------------------
-# ANALYSIS PAGE
-# -----------------------------------
+    html("""
+    <div class="cta">
+    <div class="cta-lbl">Get Started</div>
+    <div class="cta-txt">Open Match Analysis to run live predictions →</div>
+    </div>
+    </div>
+    """)
+
+
 if st.session_state.page == "Analysis":
+    html("""
+    <div class="hero a-hero">
+    <div class="hero-pill"><div class="hero-dot"></div>Win Probability Engine</div>
+    <div class="hero-title">Match <span>Analysis</span></div>
+    <div class="hero-sub">Configure the chase state to compute real-time win probabilities via XGBoost.</div>
+    </div>
+    """)
 
-    st.markdown("""
-        <div class="hero-wrapper" style="padding-bottom:clamp(24px,5vw,40px);">
-            <div class="hero-eyebrow">Win Probability Engine</div>
-            <div class="hero-title" style="font-size:clamp(36px,8vw,72px);margin-bottom:clamp(12px,2vw,16px);">
-                Match Analysis
-            </div>
-            <div class="hero-subtitle">
-                Configure the match state below to compute real-time win probabilities 
-                powered by our XGBoost model.
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="main-pad">', unsafe_allow_html=True)
-    st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
+    html('<div class="pad">')
 
     teams = list(team_data.keys())
 
-    # ---- INPUT SECTION ----
-    st.markdown("""
-        <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
-                    color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,24px);font-weight:600;">
-            Match Configuration
-        </div>
-    """, unsafe_allow_html=True)
+    html('<div class="ic-lbl">Match Configuration</div>')
 
-    col1, col2 = st.columns([1, 1], gap="large")
+    col1, col2 = st.columns(2, gap="large")
 
     with col1:
-        st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Select Teams</div>', unsafe_allow_html=True)
+        html('<div class="ic">')
+        html('<div class="ic-lbl">Select Teams</div>')
+
         batting_team = st.selectbox("Batting Team", teams, key="bat")
-        bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
-        st.markdown('</div>', unsafe_allow_html=True)
+        bowling_team = st.selectbox(
+            "Bowling Team",
+            [team for team in teams if team != batting_team],
+            key="bowl",
+        )
+
+        html('</div>')
 
     with col2:
-        st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Match State</div>', unsafe_allow_html=True)
+        html('<div class="ic">')
+        html('<div class="ic-lbl">Match State</div>')
+
         target = st.number_input("Target Score", min_value=50, max_value=300, value=180, step=1)
         score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
-        col_ov, col_wk = st.columns(2)
-        with col_ov:
+
+        over_col, wicket_col = st.columns(2)
+
+        with over_col:
             overs = st.slider("Overs Completed", min_value=1, max_value=19, value=10)
-        with col_wk:
+
+        with wicket_col:
             wickets = st.number_input("Wickets Fallen", min_value=0, max_value=9, value=2)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="height:clamp(24px,4vw,32px);"></div>', unsafe_allow_html=True)
+        html('</div>')
 
-    # ---- TEAM VS DISPLAY ----
-    t1 = team_data[batting_team]
-    t2 = team_data[bowling_team]
+    html('<div style="height:26px;"></div>')
 
-    st.markdown("""
-        <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
-                    color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,20px);font-weight:600;">
-            Fixture
+    bat = team_data[batting_team]
+    bowl = team_data[bowling_team]
+
+    f1, f2, f3 = st.columns([2, 1, 2], gap="large")
+
+    with f1:
+        html(f"""
+        <div class="fx" style="--card-color:{bat['color']}; border-color:{bat['color']}55;">
+        {team_orb(batting_team, "fixture")}
+        <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:{bat['color']};letter-spacing:0.08em;margin-top:16px;">
+        {bat['abbr']}
         </div>
-    """, unsafe_allow_html=True)
+        <div class="badge">Batting</div>
+        </div>
+        """)
 
-    vs_col1, vs_col2, vs_col3 = st.columns([2, 1, 2])
+    with f2:
+        html('<div class="vs-wrap">VS</div>')
 
-    with vs_col1:
-        st.markdown(f"""
-            <div style="background:rgba(15,23,42,0.5);border:1px solid rgba(251,191,36,0.15);
-                        border-radius:28px;padding:clamp(24px,5vw,36px);text-align:center;
-                        box-shadow:0 0 60px {t1['color']}15,0 25px 50px rgba(0,0,0,0.3);
-                        backdrop-filter:blur(20px);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,{t1['color']},transparent);opacity:0.5;"></div>
-                <div style="width:100px;height:100px;border-radius:50%;margin:0 auto;
-                            overflow:hidden;background:#0f172a;
-                            box-shadow:0 0 40px {t1['color']}50;
-                            display:flex;align-items:center;justify-content:center;">
-                    <img src="{t1['logo']}"
-                         style="width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;"
-                         onerror="this.style.display='none';" />
-                </div>
-                <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,30px);font-weight:700;
-                            color:{t1['color']};letter-spacing:3px;margin-top:18px;
-                            text-shadow:0 0 30px {t1['color']}40;">
-                    {t1['abbr']}
-                </div>
-                <div style="font-size:11px;color:rgba(148,163,184,0.5);margin-top:8px;letter-spacing:2px;font-weight:600;">
-                    BATTING
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+    with f3:
+        html(f"""
+        <div class="fx" style="--card-color:{bowl['color']}; border-color:{bowl['color']}55;">
+        {team_orb(bowling_team, "fixture")}
+        <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:{bowl['color']};letter-spacing:0.08em;margin-top:16px;">
+        {bowl['abbr']}
+        </div>
+        <div class="badge">Bowling</div>
+        </div>
+        """)
 
-    with vs_col2:
-        st.markdown("""
-            <div style="display:flex;align-items:center;justify-content:center;height:100%;
-                        font-family:'Cormorant Garamond',serif;font-size:clamp(40px,8vw,64px);font-weight:300;
-                        color:rgba(251,191,36,0.3);letter-spacing:-4px;padding:32px 0;">
-                vs
-            </div>
-        """, unsafe_allow_html=True)
+    html('<div style="height:26px;"></div>')
 
-    with vs_col3:
-        st.markdown(f"""
-            <div style="background:rgba(15,23,42,0.5);border:1px solid rgba(251,191,36,0.15);
-                        border-radius:28px;padding:clamp(24px,5vw,36px);text-align:center;
-                        box-shadow:0 0 60px {t2['color']}15,0 25px 50px rgba(0,0,0,0.3);
-                        backdrop-filter:blur(20px);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,{t2['color']},transparent);opacity:0.5;"></div>
-                <div style="width:100px;height:100px;border-radius:50%;margin:0 auto;
-                            overflow:hidden;background:#0f172a;
-                            box-shadow:0 0 40px {t2['color']}50;
-                            display:flex;align-items:center;justify-content:center;">
-                    <img src="{t2['logo']}"
-                         style="width:100%;height:100%;object-fit:cover;mix-blend-mode:screen;"
-                         onerror="this.style.display='none';" />
-                </div>
-                <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(22px,4vw,30px);font-weight:700;
-                            color:{t2['color']};letter-spacing:3px;margin-top:18px;
-                            text-shadow:0 0 30px {t2['color']}40;">
-                    {t2['abbr']}
-                </div>
-                <div style="font-size:11px;color:rgba(148,163,184,0.5);margin-top:8px;letter-spacing:2px;font-weight:600;">
-                    BOWLING
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
-
-    # ---- ANALYZE BUTTON ----
-    st.markdown('<div class="analyze-btn">', unsafe_allow_html=True)
+    html('<div class="run-btn">')
     analyze = st.button("Run Analysis", key="analyze_btn", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    html('</div>')
 
-    # ---- PREDICTION OUTPUT ----
     if analyze:
         runs_left = target - score
         balls_left = 120 - (overs * 6)
+
         crr = score / overs if overs > 0 else 0
         rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
-        # ---- MATCH-STATE VALIDATION (Issue #31) ----
-        # Guard 1: batting team has already reached or crossed the target
         if runs_left <= 0:
-            st.success(
-                f"🏆 **Match Over** — **{batting_team}** have already reached the target! "
-                f"No prediction needed."
-            )
+            st.success(f"Match Over - **{batting_team}** already reached the target!")
             st.stop()
 
-        # Guard 2: no balls remaining — innings is over, batting team fell short
         if balls_left <= 0:
-            st.error(
-                f"⏱️ **Match Over** — No balls remaining. **{bowling_team}** win! "
-                f"No prediction needed."
-            )
+            st.error(f"Match Over - No balls remaining. **{bowling_team}** win!")
             st.stop()
 
-        # Guard 3: RRR physically impossible (> 36 runs/over = 6 runs every ball)
-        if rrr > 36.0:
-            st.error(
-                f"⚠️ **Invalid match state** — Required Run Rate is **{round(rrr, 2)} runs/over**, "
-                f"which is physically impossible in cricket. Please check your inputs."
-            )
+        if rrr > 36:
+            st.error(f"Invalid state - RRR of {round(rrr, 2)} is physically impossible.")
             st.stop()
 
-        # Guard 4: RRR extremely high (> 24 runs/over) — warn but allow prediction
-        if rrr > 24.0:
-            st.warning(
-                f"⚠️ **Extreme match state** — Required Run Rate is **{round(rrr, 2)} runs/over**. "
-                f"This is a very unlikely scenario; the prediction below may be less reliable."
-            )
+        if rrr > 24:
+            st.warning(f"Extreme match state - RRR is {round(rrr, 2)}. Prediction may be less reliable.")
 
-        input_df = pd.DataFrame({
-            'batting_team': [batting_team],
-            'bowling_team': [bowling_team],
-            'city': ['Mumbai'],
-            'runs_left': [runs_left],
-            'balls_left': [balls_left],
-            'wickets': [10 - wickets],
-            'target': [target],
-            'crr': [crr],
-            'rrr': [rrr]
-        })
+        input_df = pd.DataFrame(
+            {
+                "batting_team": [batting_team],
+                "bowling_team": [bowling_team],
+                "city": ["Mumbai"],
+                "runs_left": [runs_left],
+                "balls_left": [balls_left],
+                "wickets": [10 - wickets],
+                "target": [target],
+                "crr": [crr],
+                "rrr": [rrr],
+            }
+        )
 
-        with st.spinner(""):
-            time.sleep(0.4)
-            proba = pipe.predict_proba(input_df)[0]
+        with st.spinner("Analysing..."):
+            time.sleep(0.35)
+            probability = pipe.predict_proba(input_df)[0]
 
-        win = proba[1]
-        lose = proba[0]
+        win = probability[1]
+        lose = probability[0]
+
         st.session_state.prob_history.append(round(win * 100, 2))
 
-        st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
-        st.markdown("""
-            <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
-                        color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,20px);font-weight:600;">
-                Prediction Output
+        html('<div style="height:30px;"></div>')
+        html('<div class="ic-lbl">Prediction Output</div>')
+
+        r1, r2 = st.columns(2, gap="large")
+
+        with r1:
+            bp = round(win * 100)
+
+            html(f"""
+            <div class="pc">
+            <div class="pc-eye">Batting · {bat['abbr']}</div>
+            <div class="pc-team">{batting_team}</div>
+            <div class="pc-pct">{bp}%</div>
+            <div class="pc-sub">Win Probability</div>
+            <div class="bar"><div class="bar-g" style="width:{bp}%;"></div></div>
+            <div class="bar-lbls"><span>0%</span><span>{bp}%</span><span>100%</span></div>
+            <div class="chips">
+            <div class="chip"><div class="chip-v">{score}</div><div class="chip-l">Score</div></div>
+            <div class="chip"><div class="chip-v">{runs_left}</div><div class="chip-l">Needed</div></div>
+            <div class="chip"><div class="chip-v">{balls_left}</div><div class="chip-l">Balls</div></div>
             </div>
-        """, unsafe_allow_html=True)
+            </div>
+            """)
 
-        res_col1, res_col2 = st.columns(2, gap="large")
+        with r2:
+            ep = round(lose * 100)
 
-        with res_col1:
-            bat_pct = round(win * 100)
-            st.markdown(f"""
-                <div class="prediction-card">
-                    <div class="prediction-label">Batting Team · {t1['abbr']}</div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
-                                font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {batting_team}
-                    </div>
-                    <div class="win-probability">{bat_pct}%</div>
-                    <div class="win-prob-label">Win Probability</div>
-                    <div class="prob-bar-track">
-                        <div class="prob-bar-fill" style="width:{bat_pct}%;"></div>
-                    </div>
-                    <div class="prob-bar-labels">
-                        <span>0%</span><span>{bat_pct}%</span><span>100%</span>
-                    </div>
-                    <div class="metrics-row">
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{score}</div>
-                            <div class="metric-chip-label">Current</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{runs_left}</div>
-                            <div class="metric-chip-label">Needed</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{balls_left}</div>
-                            <div class="metric-chip-label">Balls</div>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            html(f"""
+            <div class="pc-dim">
+            <div class="pc-eye">Bowling · {bowl['abbr']}</div>
+            <div class="pc-team">{bowling_team}</div>
+            <div class="pc-pct-d">{ep}%</div>
+            <div class="pc-sub">Win Probability</div>
+            <div class="bar"><div class="bar-d" style="width:{ep}%;"></div></div>
+            <div class="bar-lbls"><span>0%</span><span>{ep}%</span><span>100%</span></div>
+            <div class="chips">
+            <div class="chip"><div class="chip-v">{round(crr, 2)}</div><div class="chip-l">CRR</div></div>
+            <div class="chip"><div class="chip-v">{round(rrr, 2)}</div><div class="chip-l">RRR</div></div>
+            <div class="chip"><div class="chip-v">{10 - wickets}</div><div class="chip-l">Wkts Left</div></div>
+            </div>
+            </div>
+            """)
 
-        with res_col2:
-            bowl_pct = round(lose * 100)
-            st.markdown(f"""
-                <div style="background:rgba(15,23,42,0.4);border:1px solid rgba(148,163,184,0.15);
-                            border-radius:28px;padding:clamp(28px,5vw,40px);position:relative;overflow:hidden;
-                            backdrop-filter:blur(20px);">
-                    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(148,163,184,0.3),transparent);"></div>
-                    <div class="prediction-label">Bowling Team · {t2['abbr']}</div>
-                    <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
-                                font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {bowling_team}
-                    </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:clamp(48px,10vw,80px);font-weight:600;
-                                color:rgba(148,163,184,0.6);line-height:1;margin-bottom:8px;">
-                        {bowl_pct}%
-                    </div>
-                    <div class="win-prob-label">Win Probability</div>
-                    <div class="prob-bar-track">
-                        <div style="height:100%;border-radius:100px;
-                                    background:rgba(148,163,184,0.3);
-                                    width:{bowl_pct}%;transition:width 1s ease;"></div>
-                    </div>
-                    <div class="prob-bar-labels">
-                        <span>0%</span><span>{bowl_pct}%</span><span>100%</span>
-                    </div>
-                    <div class="metrics-row">
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{round(crr, 2)}</div>
-                            <div class="metric-chip-label">CRR</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{round(rrr, 2)}</div>
-                            <div class="metric-chip-label">RRR</div>
-                        </div>
-                        <div class="metric-chip">
-                            <div class="metric-chip-value">{10 - wickets}</div>
-                            <div class="metric-chip-label">Wickets</div>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # ---- SUMMARY ROW ----
-        st.markdown('<div style="height:clamp(16px,3vw,24px);"></div>', unsafe_allow_html=True)
         verdict = batting_team if win > 0.5 else bowling_team
-        conf = max(win, lose)
-        conf_color = "#10b981" if conf > 0.75 else "#fbbf24" if conf > 0.55 else "#f87171"
-        conf_label = "High Confidence" if conf > 0.75 else "Moderate" if conf > 0.55 else "Close Match"
+        confidence = max(win, lose)
 
-        st.markdown(f"""
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.2);
-                        border-radius:20px;padding:clamp(20px,4vw,28px) clamp(24px,4vw,32px);
-                        backdrop-filter:blur(20px);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,{conf_color},transparent);opacity:0.6;"></div>
-                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;">
-                    <div>
-                        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Model Verdict</div>
-                        <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(24px,5vw,32px);
-                                    font-weight:600;color:#f8fafc;">
-                            {verdict} <span style="color:{conf_color};">favoured</span>
-                        </div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Confidence Level</div>
-                        <div style="font-family:'DM Mono',monospace;font-size:clamp(20px,4vw,28px);color:{conf_color};font-weight:600;">
-                            {conf_label} · {round(conf*100)}%
-                        </div>
-                    </div>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        conf_color = "#22C87A" if confidence > 0.75 else "#D4A843" if confidence > 0.55 else "#E05252"
+        conf_label = "High Confidence" if confidence > 0.75 else "Moderate" if confidence > 0.55 else "Close Match"
+
+        html(f"""
+        <div class="verdict">
+        <div>
+        <div class="v-lbl">Model Verdict</div>
+        <div class="v-team">{verdict} <span style="color:{conf_color};">favoured</span></div>
+        </div>
+        <div>
+        <div class="v-lbl" style="text-align:right;">Confidence</div>
+        <div class="v-conf" style="color:{conf_color};">{conf_label} · {round(confidence * 100)}%</div>
+        </div>
+        </div>
+        """)
 
         if len(st.session_state.prob_history) > 1:
-            st.markdown('<div style="height:32px;"></div>', unsafe_allow_html=True)
+            html('<div style="height:26px;"></div>')
 
-            fig = px.line(
-                x=list(range(1, len(st.session_state.prob_history)+1)),
-                y=st.session_state.prob_history,
-                labels={'x': 'Analysis Point', 'y': 'Win Probability (%)'},
-                title="Win Probability Progression"
+            fig = go.Figure()
+
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(1, len(st.session_state.prob_history) + 1)),
+                    y=st.session_state.prob_history,
+                    mode="lines+markers",
+                    line=dict(color="#D4A843", width=2.5),
+                    marker=dict(color="#D4A843", size=7, line=dict(color="#05070A", width=1.5)),
+                    fill="tozeroy",
+                    fillcolor="rgba(212,168,67,0.07)",
+                )
             )
 
             fig.update_layout(
                 template="plotly_dark",
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e2e8f0", family="DM Sans"),
-                title_font_size=20,
-                title_font_color="#fbbf24",
-                xaxis_gridcolor="rgba(251,191,36,0.1)",
-                yaxis_gridcolor="rgba(251,191,36,0.1)",
-                xaxis_linecolor="rgba(251,191,36,0.2)",
-                yaxis_linecolor="rgba(251,191,36,0.2)"
-            )
-            
-            fig.update_traces(
-                line_color="#fbbf24",
-                line_width=3,
-                marker_color="#f59e0b",
-                marker_size=8,
-                fill='tozeroy',
-                fillcolor="rgba(251,191,36,0.1)"
+                margin=dict(l=0, r=0, t=8, b=0),
+                height=230,
+                font=dict(family="JetBrains Mono", color="#60738C", size=10),
+                xaxis=dict(title="Analysis Run", gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+                yaxis=dict(title="Win % Batting", gridcolor="rgba(255,255,255,0.05)", zeroline=False),
+                showlegend=False,
             )
 
             st.plotly_chart(fig, use_container_width=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+
+    html("</div>")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
