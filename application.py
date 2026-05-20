@@ -9,6 +9,9 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 
+# Apni translations file import kar rahe hain
+from translations import LANGUAGES
+
 # -----------------------------------
 # CONFIG
 # -----------------------------------
@@ -23,6 +26,8 @@ if "last_prediction" not in st.session_state:
     st.session_state.last_prediction = None
 if "prob_history" not in st.session_state:
     st.session_state.prob_history = []
+if "lang_data" not in st.session_state:
+    st.session_state.lang_data = LANGUAGES["English"] # Default language
 
 # -----------------------------------
 # STADIUM NIGHT THEME CSS
@@ -326,7 +331,7 @@ section[data-testid="stSidebar"]::before {
     font-family: 'Cormorant Garamond', serif;
     font-size: clamp(40px, 10vw, 96px);
     font-weight: 700;
-    line-height: 0.9;
+    line-height: 1.3; /* Fix 1: Line height badha di taaki matrayein na katein */
     letter-spacing: -2px;
     background: linear-gradient(135deg, #ffffff 0%, #fbbf24 50%, #f59e0b 100%);
     -webkit-background-clip: text;
@@ -334,6 +339,8 @@ section[data-testid="stSidebar"]::before {
     background-clip: text;
     margin-bottom: clamp(16px, 3vw, 24px);
     text-shadow: 0 0 60px rgba(251, 191, 36, 0.3);
+    padding-top: 15px; /* Fix 2: Upar se extra space de diya */
+    padding-bottom: 10px; /* Fix 3: Neeche se extra space de diya */
 }
 
 .hero-subtitle {
@@ -953,22 +960,18 @@ hr {
 }
 </style>
 
-<!-- Floating Cricket Balls -->
 <div class="cricket-ball-1"></div>
 <div class="cricket-ball-2"></div>
 <div class="cricket-ball-3"></div>
 
-<!-- Stadium Lights -->
 <div class="stadium-light-left"></div>
 <div class="stadium-light-right"></div>
 
-<!-- Pitch Overlay -->
 <div class="pitch-overlay"></div>
 """, unsafe_allow_html=True)
 
 # -----------------------------------
 # TEAM DATA
-# FIX: Updated broken logo URLs for LSG, GT and others
 # -----------------------------------
 team_data = {
     "Chennai Super Kings": {
@@ -1129,7 +1132,16 @@ pipe = train_model()
 # SIDEBAR
 # -----------------------------------
 with st.sidebar:
-    # FIX 1: Logo text on one line — reduced letter-spacing, nowrap enforced via CSS
+    selected_lang_name = st.selectbox(
+        "🌐 Language / भाषा", 
+        list(LANGUAGES.keys())
+    )
+    # Master dictionary call
+    lang = LANGUAGES[selected_lang_name]
+    st.session_state.lang_data = lang
+    
+    st.markdown('<div style="height:1px; background:rgba(251,191,36,0.1); margin:15px 0;"></div>', unsafe_allow_html=True)
+
     st.markdown("""
         <div class="sidebar-brand">
             <span class="sidebar-logo-text">CRICSCOPE</span>
@@ -1137,18 +1149,18 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sidebar-section-label">Navigation</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-section-label">{lang.get("nav_title", "Navigation")}</div>', unsafe_allow_html=True)
 
-    if st.button("◈  Dashboard", key="nav_dash"):
+    if st.button(lang.get("nav_dash", "◈  Dashboard"), key="nav_dash"):
         st.session_state.page = "Dashboard"
 
-    if st.button("◉  Match Analysis", key="nav_analysis"):
+    if st.button(lang.get("nav_analysis", "◉  Match Analysis"), key="nav_analysis"):
         st.session_state.page = "Analysis"
 
     st.markdown('<div style="height:1px; background:rgba(251,191,36,0.1); margin:20px 0;"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-section-label">Built By</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sidebar-section-label">{lang.get("built_by", "Built By")}</div>', unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div style="padding:0 20px 10px;">
             <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.15);
                         border-radius:20px;padding:24px 20px 16px;position:relative;overflow:hidden;
@@ -1164,48 +1176,19 @@ with st.sidebar:
                 <div style="font-size:18px;font-weight:600;color:#f8fafc;
                             letter-spacing:0.5px;margin-bottom:4px;">Arnav Singh</div>
                 <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;
-                            color:rgba(251,191,36,0.6);margin-bottom:20px;font-weight:600;">ML · Data · Analytics</div>
+                            color:rgba(251,191,36,0.6);margin-bottom:20px;font-weight:600;">{lang.get("tag_ml", "ML · Data · Analytics")}</div>
                 <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(251,191,36,0.2),transparent);margin-bottom:14px;"></div>
                 <div style="font-size:11px;color:rgba(226,232,240,0.5);line-height:1.6;">
-                    Predictive analytics for modern cricket.
+                    {lang.get("tag_desc", "Predictive analytics for modern cricket.")}
                 </div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
-        <div style="padding:0 20px;">
-            <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.15);
-                        border-top:none;border-radius:0 0 20px 20px;padding:4px 12px 16px;">
-                <p style="margin:0 0 4px 0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">✉</span>
-                    <a href="mailto:itsarnav.singh80@gmail.com"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        itsarnav.singh80@gmail.com
-                    </a>
-                </p>
-                <p style="margin:0 0 4px 0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">in</span>
-                    <a href="https://www.linkedin.com/in/arnav-singh-a87847351" target="_blank"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        linkedin.com/in/arnav-singh
-                    </a>
-                </p>
-                <p style="margin:0;padding:10px 8px;">
-                    <span style="color:rgba(251,191,36,0.8);margin-right:10px;font-size:13px;">◆</span>
-                    <a href="https://github.com/Arnav-Singh-5080" target="_blank"
-                       style="color:rgba(226,232,240,0.7);font-size:12px;text-decoration:none;letter-spacing:0.3px;">
-                        Arnav-Singh-5080
-                    </a>
-                </p>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
+    st.markdown(f"""
         <div style="text-align:center;margin-top:20px;padding-bottom:28px;font-size:10px;
                     letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.3);font-weight:500;">
-            CricScope v2.0 · IPL Edition
+            {lang.get("version", "CricScope v2.0 · IPL Edition")}
         </div>
     """, unsafe_allow_html=True)
 
@@ -1214,60 +1197,63 @@ with st.sidebar:
 # -----------------------------------
 if st.session_state.page == "Dashboard":
 
-    st.markdown("""
+    lang = st.session_state.lang_data
+
+    st.markdown(f"""
         <div class="hero-wrapper">
             <div class="hero-eyebrow">
-                <span style="color:#10b981;">●</span> IPL Match Intelligence · Season 2025
+                <span style="color:#10b981;">●</span> {lang.get("dash_eyebrow", "IPL Match Intelligence · Season 2025")}
             </div>
             <div class="hero-badge">
                 <div class="hero-dot"></div>
-                Live Predictions Active
+                {lang.get("dash_badge", "Live Predictions Active")}
             </div>
-            <div class="hero-title">CricScope</div>
+            <div class="hero-title">{lang.get("dash_title", "CricScope")}</div>
             <div class="hero-subtitle">
-                Precision match analytics engineered for modern cricket.
-                Real-time win probability powered by machine learning 
-                under the stadium lights.
+                {lang.get("dash_sub", "Precision match analytics engineered for modern cricket. Real-time win probability powered by machine learning under the stadium lights.")}
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div class="stats-row">
             <div class="stat-pill">
                 <div class="stat-value">15</div>
-                <div class="stat-label">IPL Teams</div>
+                <div class="stat-label">{lang.get("stat_teams", "IPL Teams")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">ML</div>
-                <div class="stat-label">XGBoost Engine</div>
+                <div class="stat-label">{lang.get("stat_engine", "XGBoost Engine")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">120</div>
-                <div class="stat-label">Balls Tracked</div>
+                <div class="stat-label">{lang.get("stat_balls", "Balls Tracked")}</div>
             </div>
             <div class="stat-pill">
                 <div class="stat-value">6+</div>
-                <div class="stat-label">Key Signals</div>
+                <div class="stat-label">{lang.get("stat_signals", "Key Signals")}</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
         <div class="section-header">
-            <div class="section-title">Franchise Overview</div>
-            <div class="section-desc">All-time performance metrics and team statistics</div>
+            <div class="section-title">{lang.get("franchise_title", "Franchise Overview")}</div>
+            <div class="section-desc">{lang.get("franchise_desc", "All-time performance metrics and team statistics")}</div>
         </div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="main-pad">', unsafe_allow_html=True)
     
-    # FIX 2: Team cards — full abbreviation visible, no truncation
     team_cols = st.columns(5)
     for i, (team_name, tdata) in enumerate(team_data.items()):
         color = tdata['color']
         logo  = tdata['logo']
         abbr  = tdata['abbr']
+        
+        # Team name translation for dashboard
+        disp_team_name = lang.get("teams", {}).get(team_name, team_name)
+        
         with team_cols[i % 5]:
             st.markdown(f"""
                 <div style="
@@ -1296,23 +1282,21 @@ if st.session_state.page == "Dashboard":
                     </div>
                     <div style="font-size:10px;color:rgba(148,163,184,0.45);margin-top:5px;
                                 letter-spacing:0.3px;font-weight:500;word-break:break-word;line-height:1.4;">
-                        {team_name}
+                        {disp_team_name}
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-    # ---- WIN RATE STATS SECTION ----
-    st.markdown("""
+    st.markdown(f"""
         <div style="margin-top:48px;">
             <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(24px,5vw,32px);font-weight:600;
                         color:#f8fafc;letter-spacing:1px;margin-bottom:32px;position:relative;display:inline-block;">
-                All-Time Win Rates
+                {lang.get("all_time_win", "All-Time Win Rates")}
                 <div style="position:absolute;bottom:-8px;left:0;width:50px;height:3px;background:linear-gradient(90deg,#fbbf24,transparent);border-radius:3px;"></div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # FIX 3: Win rate cards — clean layout with correct stats display
     wr_cols = st.columns(5)
     for i, (team_name, tdata) in enumerate(team_data.items()):
         s = win_stats.get(team_name, {"wins": 0, "total": 0, "rate": 0})
@@ -1340,35 +1324,23 @@ if st.session_state.page == "Dashboard":
                 </div>
             """, unsafe_allow_html=True)
 
-    st.markdown("""
-        <div style="margin-top:48px;text-align:center;">
-            <div style="display:inline-block;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);
-                        border-radius:16px;padding:24px 40px;">
-                <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                            color:#10b981;margin-bottom:10px;font-weight:600;">Get Started</div>
-                <div style="font-family:'Cormorant Garamond',serif;font-size:24px;color:#f8fafc;font-weight:500;">
-                    Navigate to Match Analysis →
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-    
     st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------
 # ANALYSIS PAGE
 # -----------------------------------
 if st.session_state.page == "Analysis":
+    
+    lang = st.session_state.lang_data
 
-    st.markdown("""
+    st.markdown(f"""
         <div class="hero-wrapper" style="padding-bottom:clamp(24px,5vw,40px);">
-            <div class="hero-eyebrow">Win Probability Engine</div>
+            <div class="hero-eyebrow">{lang.get("ana_eyebrow", "Win Probability Engine")}</div>
             <div class="hero-title" style="font-size:clamp(36px,8vw,72px);margin-bottom:clamp(12px,2vw,16px);">
-                Match Analysis
+                {lang.get("ana_title", "Match Analysis")}
             </div>
             <div class="hero-subtitle">
-                Configure the match state below to compute real-time win probabilities 
-                powered by our XGBoost model.
+                {lang.get("ana_sub", "Configure the match state below to compute real-time win probabilities powered by our XGBoost model.")}
             </div>
         </div>
     """, unsafe_allow_html=True)
@@ -1379,10 +1351,10 @@ if st.session_state.page == "Analysis":
     teams = list(team_data.keys())
 
     # ---- INPUT SECTION ----
-    st.markdown("""
+    st.markdown(f"""
         <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
                     color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,24px);font-weight:600;">
-            Match Configuration
+            {lang.get("match_config", "Match Configuration")}
         </div>
     """, unsafe_allow_html=True)
 
@@ -1390,21 +1362,33 @@ if st.session_state.page == "Analysis":
 
     with col1:
         st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Select Teams</div>', unsafe_allow_html=True)
-        batting_team = st.selectbox("Batting Team", teams, key="bat")
-        bowling_team = st.selectbox("Bowling Team", [t for t in teams if t != batting_team], key="bowl")
+        st.markdown(f'<div class="input-label">{lang.get("select_teams_title", "Select Teams")}</div>', unsafe_allow_html=True)
+        
+        # Translated inputs using format_func
+        batting_team = st.selectbox(
+            lang.get("batting_team", "Batting Team"), 
+            teams, 
+            format_func=lambda x: lang.get("teams", {}).get(x, x),
+            key="bat"
+        )
+        bowling_team = st.selectbox(
+            lang.get("bowling_team", "Bowling Team"), 
+            [t for t in teams if t != batting_team], 
+            format_func=lambda x: lang.get("teams", {}).get(x, x),
+            key="bowl"
+        )
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="input-card">', unsafe_allow_html=True)
-        st.markdown('<div class="input-label">Match State</div>', unsafe_allow_html=True)
-        target = st.number_input("Target Score", min_value=50, max_value=300, value=180, step=1)
-        score = st.number_input("Current Score", min_value=0, max_value=target - 1, value=50, step=1)
+        st.markdown(f'<div class="input-label">{lang.get("match_state", "Match State")}</div>', unsafe_allow_html=True)
+        target = st.number_input(lang.get("target", "Target Score"), min_value=50, max_value=300, value=180, step=1)
+        score = st.number_input(lang.get("current_score", "Current Score"), min_value=0, max_value=target - 1, value=50, step=1)
         col_ov, col_wk = st.columns(2)
         with col_ov:
-            overs = st.slider("Overs Completed", min_value=1, max_value=19, value=10)
+            overs = st.slider(lang.get("overs", "Overs Completed"), min_value=1, max_value=19, value=10)
         with col_wk:
-            wickets = st.number_input("Wickets Fallen", min_value=0, max_value=9, value=2)
+            wickets = st.number_input(lang.get("wickets", "Wickets Fallen"), min_value=0, max_value=9, value=2)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<div style="height:clamp(24px,4vw,32px);"></div>', unsafe_allow_html=True)
@@ -1413,10 +1397,10 @@ if st.session_state.page == "Analysis":
     t1 = team_data[batting_team]
     t2 = team_data[bowling_team]
 
-    st.markdown("""
+    st.markdown(f"""
         <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
                     color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,20px);font-weight:600;">
-            Fixture
+            {lang.get("fixture", "Fixture")}
         </div>
     """, unsafe_allow_html=True)
 
@@ -1443,7 +1427,7 @@ if st.session_state.page == "Analysis":
                     {t1['abbr']}
                 </div>
                 <div style="font-size:11px;color:rgba(148,163,184,0.5);margin-top:8px;letter-spacing:2px;font-weight:600;">
-                    BATTING
+                    {lang.get("lbl_batting", "BATTING")}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -1478,7 +1462,7 @@ if st.session_state.page == "Analysis":
                     {t2['abbr']}
                 </div>
                 <div style="font-size:11px;color:rgba(148,163,184,0.5);margin-top:8px;letter-spacing:2px;font-weight:600;">
-                    BOWLING
+                    {lang.get("lbl_bowling", "BOWLING")}
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -1487,7 +1471,7 @@ if st.session_state.page == "Analysis":
 
     # ---- ANALYZE BUTTON ----
     st.markdown('<div class="analyze-btn">', unsafe_allow_html=True)
-    analyze = st.button("Run Analysis", key="analyze_btn", use_container_width=True)
+    analyze = st.button(lang.get("btn_analyze", "Run Analysis"), key="analyze_btn", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ---- PREDICTION OUTPUT ----
@@ -1497,37 +1481,25 @@ if st.session_state.page == "Analysis":
         crr = score / overs if overs > 0 else 0
         rrr = (runs_left * 6) / balls_left if balls_left > 0 else 0
 
-        # ---- MATCH-STATE VALIDATION (Issue #31) ----
-        # Guard 1: batting team has already reached or crossed the target
+        disp_batting_team = lang.get("teams", {}).get(batting_team, batting_team)
+        disp_bowling_team = lang.get("teams", {}).get(bowling_team, bowling_team)
+
+        # Guard Conditions
         if runs_left <= 0:
-            st.success(
-                f"🏆 **Match Over** — **{batting_team}** have already reached the target! "
-                f"No prediction needed."
-            )
+            msg = lang.get("err_target_reached", "🏆 Match Over — {team} have already reached the target!").format(team=disp_batting_team)
+            st.success(msg)
             st.stop()
-
-        # Guard 2: no balls remaining — innings is over, batting team fell short
         if balls_left <= 0:
-            st.error(
-                f"⏱️ **Match Over** — No balls remaining. **{bowling_team}** win! "
-                f"No prediction needed."
-            )
+            msg = lang.get("err_no_balls", "⏱️ Match Over — No balls remaining. {team} win!").format(team=disp_bowling_team)
+            st.error(msg)
             st.stop()
-
-        # Guard 3: RRR physically impossible (> 36 runs/over = 6 runs every ball)
         if rrr > 36.0:
-            st.error(
-                f"⚠️ **Invalid match state** — Required Run Rate is **{round(rrr, 2)} runs/over**, "
-                f"which is physically impossible in cricket. Please check your inputs."
-            )
+            msg = lang.get("err_impossible_rrr", "⚠️ Invalid match state — Required Run Rate is {rrr}.").format(rrr=round(rrr, 2))
+            st.error(msg)
             st.stop()
-
-        # Guard 4: RRR extremely high (> 24 runs/over) — warn but allow prediction
         if rrr > 24.0:
-            st.warning(
-                f"⚠️ **Extreme match state** — Required Run Rate is **{round(rrr, 2)} runs/over**. "
-                f"This is a very unlikely scenario; the prediction below may be less reliable."
-            )
+            msg = lang.get("warn_extreme_rrr", "⚠️ Extreme match state — Required Run Rate is {rrr}.").format(rrr=round(rrr, 2))
+            st.warning(msg)
 
         input_df = pd.DataFrame({
             'batting_team': [batting_team],
@@ -1550,10 +1522,10 @@ if st.session_state.page == "Analysis":
         st.session_state.prob_history.append(round(win * 100, 2))
 
         st.markdown('<div style="height:clamp(24px,4vw,40px);"></div>', unsafe_allow_html=True)
-        st.markdown("""
+        st.markdown(f"""
             <div style="font-size:clamp(11px,1.5vw,12px);letter-spacing:3px;text-transform:uppercase;
                         color:rgba(251,191,36,0.8);margin-bottom:clamp(16px,3vw,20px);font-weight:600;">
-                Prediction Output
+                {lang.get("pred_output", "Prediction Output")}
             </div>
         """, unsafe_allow_html=True)
 
@@ -1563,13 +1535,13 @@ if st.session_state.page == "Analysis":
             bat_pct = round(win * 100)
             st.markdown(f"""
                 <div class="prediction-card">
-                    <div class="prediction-label">Batting Team · {t1['abbr']}</div>
+                    <div class="prediction-label">{lang.get("batting_team", "Batting Team")} · {t1['abbr']}</div>
                     <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
                                 font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {batting_team}
+                        {disp_batting_team}
                     </div>
                     <div class="win-probability">{bat_pct}%</div>
-                    <div class="win-prob-label">Win Probability</div>
+                    <div class="win-prob-label">{lang.get("lbl_win_prob", "Win Probability")}</div>
                     <div class="prob-bar-track">
                         <div class="prob-bar-fill" style="width:{bat_pct}%;"></div>
                     </div>
@@ -1579,15 +1551,15 @@ if st.session_state.page == "Analysis":
                     <div class="metrics-row">
                         <div class="metric-chip">
                             <div class="metric-chip-value">{score}</div>
-                            <div class="metric-chip-label">Current</div>
+                            <div class="metric-chip-label">{lang.get("lbl_current", "Current")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{runs_left}</div>
-                            <div class="metric-chip-label">Needed</div>
+                            <div class="metric-chip-label">{lang.get("lbl_needed", "Needed")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{balls_left}</div>
-                            <div class="metric-chip-label">Balls</div>
+                            <div class="metric-chip-label">{lang.get("lbl_balls", "Balls")}</div>
                         </div>
                     </div>
                 </div>
@@ -1600,16 +1572,16 @@ if st.session_state.page == "Analysis":
                             border-radius:28px;padding:clamp(28px,5vw,40px);position:relative;overflow:hidden;
                             backdrop-filter:blur(20px);">
                     <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(148,163,184,0.3),transparent);"></div>
-                    <div class="prediction-label">Bowling Team · {t2['abbr']}</div>
+                    <div class="prediction-label">{lang.get("bowling_team", "Bowling Team")} · {t2['abbr']}</div>
                     <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(20px,4vw,28px);
                                 font-weight:600;color:#f8fafc;margin-bottom:clamp(16px,3vw,20px);">
-                        {bowling_team}
+                        {disp_bowling_team}
                     </div>
                     <div style="font-family:'DM Mono',monospace;font-size:clamp(48px,10vw,80px);font-weight:600;
                                 color:rgba(148,163,184,0.6);line-height:1;margin-bottom:8px;">
                         {bowl_pct}%
                     </div>
-                    <div class="win-prob-label">Win Probability</div>
+                    <div class="win-prob-label">{lang.get("lbl_win_prob", "Win Probability")}</div>
                     <div class="prob-bar-track">
                         <div style="height:100%;border-radius:100px;
                                     background:rgba(148,163,184,0.3);
@@ -1621,15 +1593,15 @@ if st.session_state.page == "Analysis":
                     <div class="metrics-row">
                         <div class="metric-chip">
                             <div class="metric-chip-value">{round(crr, 2)}</div>
-                            <div class="metric-chip-label">CRR</div>
+                            <div class="metric-chip-label">{lang.get("lbl_crr", "CRR")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{round(rrr, 2)}</div>
-                            <div class="metric-chip-label">RRR</div>
+                            <div class="metric-chip-label">{lang.get("lbl_rrr", "RRR")}</div>
                         </div>
                         <div class="metric-chip">
                             <div class="metric-chip-value">{10 - wickets}</div>
-                            <div class="metric-chip-label">Wickets</div>
+                            <div class="metric-chip-label">{lang.get("lbl_wickets", "Wickets")}</div>
                         </div>
                     </div>
                 </div>
@@ -1637,10 +1609,17 @@ if st.session_state.page == "Analysis":
 
         # ---- SUMMARY ROW ----
         st.markdown('<div style="height:clamp(16px,3vw,24px);"></div>', unsafe_allow_html=True)
-        verdict = batting_team if win > 0.5 else bowling_team
+        verdict = disp_batting_team if win > 0.5 else disp_bowling_team
         conf = max(win, lose)
         conf_color = "#10b981" if conf > 0.75 else "#fbbf24" if conf > 0.55 else "#f87171"
-        conf_label = "High Confidence" if conf > 0.75 else "Moderate" if conf > 0.55 else "Close Match"
+        
+        # Setting confidence label via dictionary
+        if conf > 0.75:
+            conf_label = lang.get("conf_high", "High Confidence")
+        elif conf > 0.55:
+            conf_label = lang.get("conf_mod", "Moderate")
+        else:
+            conf_label = lang.get("conf_close", "Close Match")
 
         st.markdown(f"""
             <div style="background:rgba(15,23,42,0.6);border:1px solid rgba(251,191,36,0.2);
@@ -1650,15 +1629,15 @@ if st.session_state.page == "Analysis":
                 <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;">
                     <div>
                         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Model Verdict</div>
+                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">{lang.get("lbl_verdict", "Model Verdict")}</div>
                         <div style="font-family:'Cormorant Garamond',serif;font-size:clamp(24px,5vw,32px);
                                     font-weight:600;color:#f8fafc;">
-                            {verdict} <span style="color:{conf_color};">favoured</span>
+                            {verdict} <span style="color:{conf_color};">{lang.get("lbl_favoured", "favoured")}</span>
                         </div>
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">Confidence Level</div>
+                                    color:rgba(148,163,184,0.5);margin-bottom:8px;font-weight:600;">{lang.get("lbl_confidence", "Confidence Level")}</div>
                         <div style="font-family:'DM Mono',monospace;font-size:clamp(20px,4vw,28px);color:{conf_color};font-weight:600;">
                             {conf_label} · {round(conf*100)}%
                         </div>
@@ -1673,8 +1652,8 @@ if st.session_state.page == "Analysis":
             fig = px.line(
                 x=list(range(1, len(st.session_state.prob_history)+1)),
                 y=st.session_state.prob_history,
-                labels={'x': 'Analysis Point', 'y': 'Win Probability (%)'},
-                title="Win Probability Progression"
+                labels={'x': lang.get("plot_x", "Analysis Point"), 'y': lang.get("plot_y", "Win Probability (%)")},
+                title=lang.get("plot_title", "Win Probability Progression")
             )
 
             fig.update_layout(
